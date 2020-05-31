@@ -53,6 +53,6 @@ Currently, the `Distribution` trait is not stable and it will most likely change
 - [ ] studentT
 - [ ] transformed_distribution
 - [ ] transforms
-- [ ] uniform
+- [x] uniform
 - [ ] von_mises
 - [ ] weibull

@@ -1,6 +1,7 @@
 use tch::Tensor;
 
 mod normal;
+mod uniform;
 
 pub trait Distribution {
     /// Returns the cumulative density/mass function evaluated at `val`.
@@ -21,3 +22,4 @@ pub trait Distribution {
 }
 
 pub use normal::Normal;
+pub use uniform::Uniform;

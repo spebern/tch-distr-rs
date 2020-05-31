@@ -3,7 +3,7 @@ use numpy::{PyArrayDyn, ToPyArray};
 use pyo3::{prelude::*, types::PyTuple};
 use std::convert::TryInto;
 use tch::Tensor;
-use tch_distr::{Distribution, Normal};
+use tch_distr::{Distribution, Normal, Uniform};
 
 fn tensor_to_py_obj<'py>(py: Python<'py>, torch: &'py PyModule, t: &Tensor) -> &'py PyAny {
     let array: ndarray::ArrayD<f64> = t.try_into().unwrap();
@@ -94,6 +94,59 @@ fn normal() {
         );
         let dist_py = distributions.call1("Normal", args_py).unwrap();
         let dist_rs = Normal::new(mean, std);
+
+        test_entropy(py, &dist_rs, dist_py);
+
+        let args = vec![
+            1.0.into(),
+            2.0.into(),
+            Tensor::of_slice(&[1.0, 1.0]),
+            Tensor::of_slice(&[2.0, 2.0]),
+        ];
+        test_log_prob(py, torch, &dist_rs, dist_py, args);
+
+        let args = vec![
+            1.0.into(),
+            2.0.into(),
+            Tensor::of_slice(&[1.0, 1.0]),
+            Tensor::of_slice(&[2.0, 2.0]),
+        ];
+        test_cdf(py, torch, &dist_rs, dist_py, args);
+
+        let args = vec![
+            0.5.into(),
+            0.7.into(),
+            Tensor::of_slice(&[0.3, 0.4]),
+            Tensor::of_slice(&[0.2, 0.7]),
+        ];
+        test_icdf(py, torch, &dist_rs, dist_py, args);
+    }
+}
+
+#[test]
+fn uniform() {
+    let gil = Python::acquire_gil();
+    let py = gil.python();
+
+    let torch = PyModule::import(py, "torch").unwrap();
+    let distributions = PyModule::import(py, "torch.distributions").unwrap();
+
+    let args: Vec<(Tensor, Tensor)> = vec![
+        (1.0.into(), 2.0.into()),
+        (2.0.into(), 4.0.into()),
+        (Tensor::of_slice(&[1.0, 1.0]), Tensor::of_slice(&[2.0, 2.0])),
+    ];
+
+    for (low, high) in args.into_iter() {
+        let args_py = PyTuple::new(
+            py,
+            vec![
+                tensor_to_py_obj(py, torch, &low),
+                tensor_to_py_obj(py, torch, &high),
+            ],
+        );
+        let dist_py = distributions.call1("Uniform", args_py).unwrap();
+        let dist_rs = Uniform::new(low, high);
 
         test_entropy(py, &dist_rs, dist_py);
 
