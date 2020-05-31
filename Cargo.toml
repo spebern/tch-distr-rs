@@ -1,0 +1,20 @@
+[package]
+name = "tch_distr"
+version = "0.1.0"
+authors = ["bold <bold@cryptoguru.com>"]
+edition = "2018"
+
+description = "Rust equivalent torch.distributions."
+repository = "https://github.com/spebern/tch-distr-rs"
+keywords = ["pytorch", "deep-learning", "machine-learning", "distribution"]
+categories = ["science"]
+license = "MIT/Apache-2.0"
+readme = "README.md"
+
+[dependencies]
+tch = "0.1.7"
+
+[dev-dependencies]
+numpy = "0.9.0"
+ndarray = "0.13.1"
+pyo3 = "0.10.1"
