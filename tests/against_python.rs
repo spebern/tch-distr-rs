@@ -5,6 +5,37 @@ use std::convert::TryInto;
 use tch::Tensor;
 use tch_distr::{Distribution, Normal, Uniform};
 
+struct TestCases {
+    log_prob: Vec<Tensor>,
+    cdf: Vec<Tensor>,
+    icdf: Vec<Tensor>,
+}
+
+impl Default for TestCases {
+    fn default() -> Self {
+        Self {
+            log_prob: vec![
+                1.0.into(),
+                2.0.into(),
+                Tensor::of_slice(&[1.0, 1.0]),
+                Tensor::of_slice(&[2.0, 2.0]),
+            ],
+            cdf: vec![
+                1.0.into(),
+                2.0.into(),
+                Tensor::of_slice(&[1.0, 1.0]),
+                Tensor::of_slice(&[2.0, 2.0]),
+            ],
+            icdf: vec![
+                0.5.into(),
+                0.7.into(),
+                Tensor::of_slice(&[0.3, 0.4]),
+                Tensor::of_slice(&[0.2, 0.7]),
+            ],
+        }
+    }
+}
+
 fn tensor_to_py_obj<'py>(py: Python<'py>, torch: &'py PyModule, t: &Tensor) -> &'py PyAny {
     let array: ndarray::ArrayD<f64> = t.try_into().unwrap();
     torch.call1("from_numpy", (array.to_pyarray(py),)).unwrap()
@@ -30,12 +61,12 @@ fn test_log_prob<'py, D: Distribution>(
     torch: &'py PyModule,
     dist_rs: &D,
     dist_py: &PyAny,
-    args: Vec<Tensor>,
+    args: &[Tensor],
 ) {
-    for args in args.into_iter() {
-        let args_py = PyTuple::new(py, vec![tensor_to_py_obj(py, torch, &args)]);
+    for args in args.iter() {
+        let args_py = PyTuple::new(py, vec![tensor_to_py_obj(py, torch, args)]);
         let log_prob_py = dist_py.call_method("log_prob", args_py, None).unwrap();
-        let log_prob_rs = dist_rs.log_prob(&args);
+        let log_prob_rs = dist_rs.log_prob(args);
         assert_tensor_eq(py, &log_prob_rs, log_prob_py);
     }
 }
@@ -45,12 +76,12 @@ fn test_cdf<'py, D: Distribution>(
     torch: &'py PyModule,
     dist_rs: &D,
     dist_py: &PyAny,
-    args: Vec<Tensor>,
+    args: &[Tensor],
 ) {
-    for args in args.into_iter() {
-        let args_py = PyTuple::new(py, vec![tensor_to_py_obj(py, torch, &args)]);
+    for args in args.iter() {
+        let args_py = PyTuple::new(py, vec![tensor_to_py_obj(py, torch, args)]);
         let log_prob_py = dist_py.call_method("cdf", args_py, None).unwrap();
-        let log_prob_rs = dist_rs.cdf(&args);
+        let log_prob_rs = dist_rs.cdf(args);
         assert_tensor_eq(py, &log_prob_rs, log_prob_py);
     }
 }
@@ -60,14 +91,37 @@ fn test_icdf<'py, D: Distribution>(
     torch: &'py PyModule,
     dist_rs: &D,
     dist_py: &PyAny,
-    args: Vec<Tensor>,
+    args: &[Tensor],
 ) {
     for args in args.into_iter() {
-        let args_py = PyTuple::new(py, vec![tensor_to_py_obj(py, torch, &args)]);
+        let args_py = PyTuple::new(py, vec![tensor_to_py_obj(py, torch, args)]);
         let log_prob_py = dist_py.call_method("icdf", args_py, None).unwrap();
-        let log_prob_rs = dist_rs.icdf(&args);
+        let log_prob_rs = dist_rs.icdf(args);
         assert_tensor_eq(py, &log_prob_rs, log_prob_py);
     }
+}
+
+fn run_test_cases<'py, D, T, U>(
+    py: Python<'py>,
+    torch: &'py PyModule,
+    dist_rs: D,
+    dist_name: &str,
+    dist_args: impl IntoIterator<Item = T, IntoIter = U>,
+    test_cases: &TestCases,
+) where
+    D: Distribution,
+    T: ToPyObject,
+    U: ExactSizeIterator<Item = T>,
+{
+    let distributions = PyModule::import(py, "torch.distributions").unwrap();
+
+    let dist_args = PyTuple::new(py, dist_args);
+    let dist_py = distributions.call1(dist_name, dist_args).unwrap();
+
+    test_entropy(py, &dist_rs, dist_py);
+    test_log_prob(py, torch, &dist_rs, dist_py, &test_cases.log_prob);
+    test_cdf(py, torch, &dist_rs, dist_py, &test_cases.cdf);
+    test_icdf(py, torch, &dist_rs, dist_py, &test_cases.icdf);
 }
 
 #[test]
@@ -76,7 +130,6 @@ fn normal() {
     let py = gil.python();
 
     let torch = PyModule::import(py, "torch").unwrap();
-    let distributions = PyModule::import(py, "torch.distributions").unwrap();
 
     let args: Vec<(Tensor, Tensor)> = vec![
         (1.0.into(), 2.0.into()),
@@ -84,42 +137,15 @@ fn normal() {
         (Tensor::of_slice(&[1.0, 1.0]), Tensor::of_slice(&[2.0, 2.0])),
     ];
 
+    let test_cases = TestCases::default();
     for (mean, std) in args.into_iter() {
-        let args_py = PyTuple::new(
-            py,
-            vec![
-                tensor_to_py_obj(py, torch, &mean),
-                tensor_to_py_obj(py, torch, &std),
-            ],
-        );
-        let dist_py = distributions.call1("Normal", args_py).unwrap();
+        let args_py = vec![
+            tensor_to_py_obj(py, torch, &mean),
+            tensor_to_py_obj(py, torch, &std),
+        ];
         let dist_rs = Normal::new(mean, std);
 
-        test_entropy(py, &dist_rs, dist_py);
-
-        let args = vec![
-            1.0.into(),
-            2.0.into(),
-            Tensor::of_slice(&[1.0, 1.0]),
-            Tensor::of_slice(&[2.0, 2.0]),
-        ];
-        test_log_prob(py, torch, &dist_rs, dist_py, args);
-
-        let args = vec![
-            1.0.into(),
-            2.0.into(),
-            Tensor::of_slice(&[1.0, 1.0]),
-            Tensor::of_slice(&[2.0, 2.0]),
-        ];
-        test_cdf(py, torch, &dist_rs, dist_py, args);
-
-        let args = vec![
-            0.5.into(),
-            0.7.into(),
-            Tensor::of_slice(&[0.3, 0.4]),
-            Tensor::of_slice(&[0.2, 0.7]),
-        ];
-        test_icdf(py, torch, &dist_rs, dist_py, args);
+        run_test_cases(py, torch, dist_rs, "Normal", args_py, &test_cases);
     }
 }
 
@@ -129,7 +155,6 @@ fn uniform() {
     let py = gil.python();
 
     let torch = PyModule::import(py, "torch").unwrap();
-    let distributions = PyModule::import(py, "torch.distributions").unwrap();
 
     let args: Vec<(Tensor, Tensor)> = vec![
         (1.0.into(), 2.0.into()),
@@ -137,41 +162,14 @@ fn uniform() {
         (Tensor::of_slice(&[1.0, 1.0]), Tensor::of_slice(&[2.0, 2.0])),
     ];
 
+    let test_cases = TestCases::default();
     for (low, high) in args.into_iter() {
-        let args_py = PyTuple::new(
-            py,
-            vec![
-                tensor_to_py_obj(py, torch, &low),
-                tensor_to_py_obj(py, torch, &high),
-            ],
-        );
-        let dist_py = distributions.call1("Uniform", args_py).unwrap();
+        let args_py = vec![
+            tensor_to_py_obj(py, torch, &low),
+            tensor_to_py_obj(py, torch, &high),
+        ];
         let dist_rs = Uniform::new(low, high);
 
-        test_entropy(py, &dist_rs, dist_py);
-
-        let args = vec![
-            1.0.into(),
-            2.0.into(),
-            Tensor::of_slice(&[1.0, 1.0]),
-            Tensor::of_slice(&[2.0, 2.0]),
-        ];
-        test_log_prob(py, torch, &dist_rs, dist_py, args);
-
-        let args = vec![
-            1.0.into(),
-            2.0.into(),
-            Tensor::of_slice(&[1.0, 1.0]),
-            Tensor::of_slice(&[2.0, 2.0]),
-        ];
-        test_cdf(py, torch, &dist_rs, dist_py, args);
-
-        let args = vec![
-            0.5.into(),
-            0.7.into(),
-            Tensor::of_slice(&[0.3, 0.4]),
-            Tensor::of_slice(&[0.2, 0.7]),
-        ];
-        test_icdf(py, torch, &dist_rs, dist_py, args);
+        run_test_cases(py, torch, dist_rs, "Uniform", args_py, &test_cases);
     }
 }
