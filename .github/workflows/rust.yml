@@ -16,10 +16,6 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
-    - name: Install python
-      uses: actions/setup-python@v2
-      with:
-        python-version: '3.8'
     - name: Install pyo3 dependencies
       run: sudo apt install python3-dev python-dev
     - name: Install torch
