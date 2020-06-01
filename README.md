@@ -58,7 +58,7 @@ Using `community/python-pytorch` instead worked for me.
 - [x] normal
 - [ ] one_hot_categorical
 - [ ] pareto
-- [ ] poisson
+- [x] poisson
 - [ ] relaxed_bernoulli
 - [ ] relaxed_categorical
 - [ ] studentT

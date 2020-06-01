@@ -3,7 +3,7 @@ use numpy::{PyArrayDyn, ToPyArray};
 use pyo3::{prelude::*, types::PyTuple};
 use std::convert::TryInto;
 use tch::Tensor;
-use tch_distr::{Bernoulli, Distribution, Normal, Uniform};
+use tch_distr::{Bernoulli, Distribution, Normal, Poisson, Uniform};
 
 struct TestCases {
     log_prob: Vec<Tensor>,
@@ -209,6 +209,32 @@ fn bernoulli() {
 
         let dist_rs = Bernoulli::from_logits(logits);
         test_entropy(py, &dist_rs, dist_py);
+        test_log_prob(py, torch, &dist_rs, dist_py, &test_cases.log_prob);
+    }
+}
+
+#[test]
+fn poisson() {
+    let gil = Python::acquire_gil();
+    let py = gil.python();
+
+    let torch = PyModule::import(py, "torch").unwrap();
+    let distributions = PyModule::import(py, "torch.distributions").unwrap();
+
+    let rates: Vec<Tensor> = vec![
+        0.1337.into(),
+        0.6667.into(),
+        Tensor::of_slice(&[0.156, 0.33]),
+    ];
+
+    let test_cases = TestCases::default();
+    for rate in rates.into_iter() {
+        let args_py = vec![tensor_to_py_obj(py, torch, &rate)];
+        let dist_py = distributions
+            .call1("Poisson", PyTuple::new(py, args_py))
+            .unwrap();
+
+        let dist_rs = Poisson::new(rate);
         test_log_prob(py, torch, &dist_rs, dist_py, &test_cases.log_prob);
     }
 }
