@@ -1,7 +1,9 @@
 use tch::Tensor;
 
+mod bernoulli;
 mod normal;
 mod uniform;
+mod utils;
 
 pub trait Distribution {
     /// Returns the cumulative density/mass function evaluated at `val`.
@@ -21,5 +23,6 @@ pub trait Distribution {
     fn sample(&self, shape: &[i64]) -> Tensor;
 }
 
+pub use bernoulli::Bernoulli;
 pub use normal::Normal;
 pub use uniform::Uniform;
