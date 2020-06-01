@@ -3,7 +3,7 @@ use numpy::{PyArrayDyn, ToPyArray};
 use pyo3::{prelude::*, types::PyTuple};
 use std::convert::TryInto;
 use tch::Tensor;
-use tch_distr::{Bernoulli, Distribution, Exponential, Normal, Poisson, Uniform};
+use tch_distr::{Bernoulli, Cauchy, Distribution, Exponential, Normal, Poisson, Uniform};
 
 struct TestCases {
     log_prob: Vec<Tensor>,
@@ -258,5 +258,30 @@ fn exponential() {
         let dist_rs = Exponential::new(rate);
 
         run_test_cases(py, torch, dist_rs, "Exponential", args_py, &test_cases);
+    }
+}
+
+#[test]
+fn cauchy() {
+    let gil = Python::acquire_gil();
+    let py = gil.python();
+
+    let torch = PyModule::import(py, "torch").unwrap();
+
+    let args: Vec<(Tensor, Tensor)> = vec![
+        (1.0.into(), 2.0.into()),
+        (2.0.into(), 4.0.into()),
+        (Tensor::of_slice(&[1.0, 1.0]), Tensor::of_slice(&[2.0, 2.0])),
+    ];
+
+    let test_cases = TestCases::default();
+    for (median, scale) in args.into_iter() {
+        let args_py = vec![
+            tensor_to_py_obj(py, torch, &median),
+            tensor_to_py_obj(py, torch, &scale),
+        ];
+        let dist_rs = Cauchy::new(median, scale);
+
+        run_test_cases(py, torch, dist_rs, "Cauchy", args_py, &test_cases);
     }
 }

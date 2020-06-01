@@ -30,7 +30,7 @@ Using `community/python-pytorch` instead worked for me.
 - [ ] beta
 - [ ] binomial
 - [ ] categorical
-- [ ] cauchy
+- [x] cauchy
 - [ ] chi2
 - [ ] constraint_registry
 - [ ] constraints
