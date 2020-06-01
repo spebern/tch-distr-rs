@@ -1,6 +1,7 @@
 use tch::Tensor;
 
 mod bernoulli;
+mod exponential;
 mod normal;
 mod poisson;
 mod uniform;
@@ -31,6 +32,7 @@ pub trait Distribution {
 }
 
 pub use bernoulli::Bernoulli;
+pub use exponential::Exponential;
 pub use normal::Normal;
 pub use poisson::Poisson;
 pub use uniform::Uniform;

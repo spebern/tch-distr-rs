@@ -3,7 +3,7 @@ use numpy::{PyArrayDyn, ToPyArray};
 use pyo3::{prelude::*, types::PyTuple};
 use std::convert::TryInto;
 use tch::Tensor;
-use tch_distr::{Bernoulli, Distribution, Normal, Poisson, Uniform};
+use tch_distr::{Bernoulli, Distribution, Exponential, Normal, Poisson, Uniform};
 
 struct TestCases {
     log_prob: Vec<Tensor>,
@@ -236,5 +236,27 @@ fn poisson() {
 
         let dist_rs = Poisson::new(rate);
         test_log_prob(py, torch, &dist_rs, dist_py, &test_cases.log_prob);
+    }
+}
+
+#[test]
+fn exponential() {
+    let gil = Python::acquire_gil();
+    let py = gil.python();
+
+    let torch = PyModule::import(py, "torch").unwrap();
+
+    let rates: Vec<Tensor> = vec![
+        0.1337.into(),
+        0.6667.into(),
+        Tensor::of_slice(&[0.156, 0.33]),
+    ];
+
+    let test_cases = TestCases::default();
+    for rate in rates.into_iter() {
+        let args_py = vec![tensor_to_py_obj(py, torch, &rate)];
+        let dist_rs = Exponential::new(rate);
+
+        run_test_cases(py, torch, dist_rs, "Exponential", args_py, &test_cases);
     }
 }

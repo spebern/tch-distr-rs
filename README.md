@@ -38,7 +38,7 @@ Using `community/python-pytorch` instead worked for me.
 - [ ] dirichlet
 - [ ] distribution
 - [ ] exp_family
-- [ ] exponential
+- [x] exponential
 - [ ] fishersnedecor
 - [ ] gamma
 - [ ] geometric
