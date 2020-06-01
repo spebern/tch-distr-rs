@@ -9,3 +9,13 @@ pub fn eps(kind: Kind) -> Option<f64> {
         _ => return None,
     })
 }
+
+/// Returns the smallest representable floating point number.
+pub fn tiny(kind: Kind) -> Option<f64> {
+    Some(match kind {
+        Kind::Half => 6.103515625e-05,
+        Kind::Float => std::f32::MIN as _,
+        Kind::Double => std::f64::MIN,
+        _ => return None,
+    })
+}

@@ -3,7 +3,7 @@ use numpy::{PyArrayDyn, ToPyArray};
 use pyo3::{prelude::*, types::PyTuple};
 use std::convert::TryInto;
 use tch::Tensor;
-use tch_distr::{Bernoulli, Cauchy, Distribution, Exponential, Normal, Poisson, Uniform};
+use tch_distr::{Bernoulli, Cauchy, Distribution, Exponential, Gamma, Normal, Poisson, Uniform};
 
 struct TestCases {
     log_prob: Vec<Tensor>,
@@ -283,5 +283,36 @@ fn cauchy() {
         let dist_rs = Cauchy::new(median, scale);
 
         run_test_cases(py, torch, dist_rs, "Cauchy", args_py, &test_cases);
+    }
+}
+
+#[test]
+fn gamma() {
+    let gil = Python::acquire_gil();
+    let py = gil.python();
+
+    let torch = PyModule::import(py, "torch").unwrap();
+    let distributions = PyModule::import(py, "torch.distributions").unwrap();
+
+    let args: Vec<(Tensor, Tensor)> = vec![
+        (1.0.into(), 2.0.into()),
+        (2.0.into(), 4.0.into()),
+        (Tensor::of_slice(&[1.0, 1.0]), Tensor::of_slice(&[2.0, 2.0])),
+    ];
+
+    let test_cases = TestCases::default();
+    for (concentration, rate) in args.into_iter() {
+        let args_py = vec![
+            tensor_to_py_obj(py, torch, &concentration),
+            tensor_to_py_obj(py, torch, &rate),
+        ];
+        let dist_py = distributions
+            .call1("Gamma", PyTuple::new(py, args_py))
+            .unwrap();
+
+        let dist_rs = Gamma::new(concentration, rate);
+
+        test_log_prob(py, torch, &dist_rs, dist_py, &test_cases.log_prob);
+        test_entropy(py, &dist_rs, dist_py);
     }
 }
