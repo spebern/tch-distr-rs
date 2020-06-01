@@ -7,13 +7,19 @@ mod utils;
 
 pub trait Distribution {
     /// Returns the cumulative density/mass function evaluated at `val`.
-    fn cdf(&self, val: &Tensor) -> Tensor;
+    fn cdf(&self, _val: &Tensor) -> Tensor {
+        unimplemented!()
+    }
 
     /// Returns entropy of distribution, batched over batch_shape.
-    fn entropy(&self) -> Tensor;
+    fn entropy(&self) -> Tensor {
+        unimplemented!()
+    }
 
     /// Returns the inverse cumulative density/mass function evaluated at `val`.
-    fn icdf(&self, val: &Tensor) -> Tensor;
+    fn icdf(&self, _val: &Tensor) -> Tensor {
+        unimplemented!()
+    }
 
     /// Returns the inverse cumulative density/mass function evaluated at `val`.
     fn log_prob(&self, val: &Tensor) -> Tensor;

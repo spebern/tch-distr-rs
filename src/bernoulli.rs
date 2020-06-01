@@ -49,10 +49,6 @@ fn logits_to_probs(logits: &Tensor, is_binary: bool) -> Tensor {
 }
 
 impl Distribution for Bernoulli {
-    fn cdf(&self, _val: &Tensor) -> Tensor {
-        unimplemented!()
-    }
-
     fn entropy(&self) -> Tensor {
         self.logits.binary_cross_entropy_with_logits::<Tensor>(
             &self.probs,
@@ -60,10 +56,6 @@ impl Distribution for Bernoulli {
             None,
             Reduction::None,
         )
-    }
-
-    fn icdf(&self, _val: &Tensor) -> Tensor {
-        unimplemented!()
     }
 
     fn log_prob(&self, val: &Tensor) -> Tensor {
