@@ -26,7 +26,7 @@ seems to have been a conflict between the python `torch` and `libtorch`.
 Using `community/python-pytorch` instead worked for me.
 
 # Distributions
-- [ ] bernoulli
+- [x] bernoulli
 - [ ] beta
 - [ ] binomial
 - [ ] categorical
