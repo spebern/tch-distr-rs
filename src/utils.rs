@@ -1,4 +1,4 @@
-use tch::Kind;
+use tch::{Kind, Tensor};
 
 /// Returns the smallest representable floating point number such that 1.0 + eps != 1.0.
 pub fn eps(kind: Kind) -> Option<f64> {
@@ -18,4 +18,26 @@ pub fn tiny(kind: Kind) -> Option<f64> {
         Kind::Double => std::f64::MIN,
         _ => return None,
     })
+}
+
+fn clamp_probs(probs: &Tensor) -> Tensor {
+    let eps = eps(probs.kind()).unwrap();
+    probs.clamp(eps, 1.0 - eps)
+}
+
+pub fn probs_to_logits(probs: &Tensor, is_binary: bool) -> Tensor {
+    let ps_clamped = clamp_probs(probs);
+    if is_binary {
+        ps_clamped.log() - (-ps_clamped).log1p()
+    } else {
+        ps_clamped.log()
+    }
+}
+
+pub fn logits_to_probs(logits: &Tensor, is_binary: bool) -> Tensor {
+    if is_binary {
+        logits.sigmoid()
+    } else {
+        logits.softmax(-1, logits.kind())
+    }
 }

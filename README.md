@@ -37,7 +37,7 @@ Using `community/python-pytorch` instead worked for me.
 - [x] exponential
 - [ ] fishersnedecor
 - [x] gamma
-- [ ] geometric
+- [x] geometric
 - [ ] gumbel
 - [ ] half_cauchy
 - [ ] half_normal

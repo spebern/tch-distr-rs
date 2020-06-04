@@ -3,7 +3,9 @@ use numpy::{PyArrayDyn, ToPyArray};
 use pyo3::{prelude::*, types::PyTuple};
 use std::convert::TryInto;
 use tch::Tensor;
-use tch_distr::{Bernoulli, Cauchy, Distribution, Exponential, Gamma, Normal, Poisson, Uniform};
+use tch_distr::{
+    Bernoulli, Cauchy, Distribution, Exponential, Gamma, Geometric, Normal, Poisson, Uniform,
+};
 
 struct TestCases {
     log_prob: Vec<Tensor>,
@@ -314,5 +316,44 @@ fn gamma() {
 
         test_log_prob(py, torch, &dist_rs, dist_py, &test_cases.log_prob);
         test_entropy(py, &dist_rs, dist_py);
+    }
+}
+
+#[test]
+fn geometric() {
+    let gil = Python::acquire_gil();
+    let py = gil.python();
+
+    let torch = PyModule::import(py, "torch").unwrap();
+    let distributions = PyModule::import(py, "torch.distributions").unwrap();
+
+    let probs: Vec<Tensor> = vec![0.1337.into(), 0.6667.into(), 1.0.into()];
+
+    let test_cases = TestCases::default();
+    for probs in probs.into_iter() {
+        let args_py = vec![tensor_to_py_obj(py, torch, &probs)];
+        let dist_py = distributions
+            .call1("Geometric", PyTuple::new(py, args_py))
+            .unwrap();
+
+        let dist_rs = Geometric::from_probs(probs);
+        test_entropy(py, &dist_rs, dist_py);
+        test_log_prob(py, torch, &dist_rs, dist_py, &test_cases.log_prob);
+    }
+
+    let logits: Vec<Tensor> = vec![0.1337.into(), 0.6667.into(), 1.0.into()];
+
+    let test_cases = TestCases::default();
+    for logits in logits.into_iter() {
+        let dist_py = distributions
+            .call1(
+                "Geometric",
+                (pyo3::Python::None(py), tensor_to_py_obj(py, torch, &logits)),
+            )
+            .unwrap();
+
+        let dist_rs = Geometric::from_logits(logits);
+        test_entropy(py, &dist_rs, dist_py);
+        test_log_prob(py, torch, &dist_rs, dist_py, &test_cases.log_prob);
     }
 }

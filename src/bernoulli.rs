@@ -1,5 +1,5 @@
 use super::Distribution;
-use crate::utils::eps;
+use crate::utils::{logits_to_probs, probs_to_logits};
 use tch::{Kind, Reduction, Tensor};
 
 /// A Bernoulli distribution.
@@ -23,28 +23,6 @@ impl Bernoulli {
             probs: logits_to_probs(&logits, true),
             logits,
         }
-    }
-}
-
-fn clamp_probs(probs: &Tensor) -> Tensor {
-    let eps = eps(probs.kind()).unwrap();
-    probs.clamp(eps, 1.0 - eps)
-}
-
-fn probs_to_logits(probs: &Tensor, is_binary: bool) -> Tensor {
-    let ps_clamped = clamp_probs(probs);
-    if is_binary {
-        ps_clamped.log() - (-ps_clamped).log1p()
-    } else {
-        ps_clamped.log()
-    }
-}
-
-fn logits_to_probs(logits: &Tensor, is_binary: bool) -> Tensor {
-    if is_binary {
-        logits.sigmoid()
-    } else {
-        logits.softmax(-1, logits.kind())
     }
 }
 
