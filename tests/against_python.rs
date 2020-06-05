@@ -223,6 +223,7 @@ fn bernoulli() {
     let mut test_cases = TestCases::default();
     test_cases.icdf = None;
     test_cases.cdf = None;
+    test_cases.sample = Some(vec![vec![1], vec![1, 2]]);
 
     for probs in probs.into_iter() {
         let dist_py = py_env
@@ -238,6 +239,7 @@ fn bernoulli() {
     let mut test_cases = TestCases::default();
     test_cases.icdf = None;
     test_cases.cdf = None;
+    test_cases.sample = Some(vec![vec![1], vec![1, 2]]);
 
     for logits in logits.into_iter() {
         let dist_py = py_env
@@ -271,6 +273,7 @@ fn poisson() {
     test_cases.cdf = None;
     test_cases.icdf = None;
     test_cases.entropy = false;
+    test_cases.sample = Some(vec![vec![1], vec![1, 2]]);
 
     for rate in rates.into_iter() {
         let dist_py = py_env
@@ -294,7 +297,8 @@ fn exponential() {
         Tensor::of_slice(&[0.156, 0.33]),
     ];
 
-    let test_cases = TestCases::default();
+    let mut test_cases = TestCases::default();
+    test_cases.sample = Some(vec![vec![1], vec![1, 2]]);
 
     for rate in rates.into_iter() {
         let dist_py = py_env
@@ -318,7 +322,8 @@ fn cauchy() {
         (Tensor::of_slice(&[1.0, 1.0]), Tensor::of_slice(&[2.0, 2.0])),
     ];
 
-    let test_cases = TestCases::default();
+    let mut test_cases = TestCases::default();
+    test_cases.sample = Some(vec![vec![1], vec![1, 2]]);
 
     for (median, scale) in args.into_iter() {
         let dist_py = py_env
@@ -379,6 +384,7 @@ fn geometric() {
     let mut test_cases = TestCases::default();
     test_cases.icdf = None;
     test_cases.cdf = None;
+    test_cases.sample = Some(vec![vec![1], vec![1, 2]]);
 
     for probs in probs.into_iter() {
         let dist_py = py_env

@@ -4,12 +4,14 @@ use tch::Tensor;
 /// An Exponential distribution.
 pub struct Exponential {
     rate: Tensor,
+    batch_shape: Vec<i64>,
 }
 
 impl Exponential {
     /// Creates a new `Exponential` distribution with `rate`.
     pub fn new(rate: Tensor) -> Self {
-        Self { rate }
+        let batch_shape = rate.size();
+        Self { rate, batch_shape }
     }
 
     /// Returns the rate of the distribution.
@@ -24,7 +26,8 @@ impl Distribution for Exponential {
     }
 
     fn sample(&self, shape: &[i64]) -> Tensor {
-        Tensor::empty(shape, (self.rate.kind(), self.rate.device())).exponential_(1.0) / &self.rate
+        let shape = self.extended_shape(shape);
+        Tensor::empty(&shape, (self.rate.kind(), self.rate.device())).exponential_(1.0) / &self.rate
     }
 
     fn cdf(&self, val: &Tensor) -> Tensor {
@@ -37,5 +40,9 @@ impl Distribution for Exponential {
 
     fn icdf(&self, val: &Tensor) -> Tensor {
         -(1 - val).log() / &self.rate
+    }
+
+    fn batch_shape(&self) -> &[i64] {
+        &self.batch_shape
     }
 }

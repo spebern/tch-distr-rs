@@ -8,22 +8,27 @@ use tch::{Reduction, Tensor};
 pub struct Geometric {
     probs: Tensor,
     logits: Tensor,
+    batch_shape: Vec<i64>,
 }
 
 impl Geometric {
     /// Creates a Geometric distribution from probabilities.
     pub fn from_probs(probs: Tensor) -> Self {
+        let batch_shape = probs.size();
         Self {
             logits: probs_to_logits(&probs, true),
             probs,
+            batch_shape,
         }
     }
 
     /// Creates a Geometric distribution from logits.
     pub fn from_logits(logits: Tensor) -> Self {
+        let batch_shape = logits.size();
         Self {
             probs: logits_to_probs(&logits, true),
             logits,
+            batch_shape,
         }
     }
 
@@ -50,9 +55,13 @@ impl Distribution for Geometric {
     }
 
     fn sample(&self, shape: &[i64]) -> Tensor {
+        let shape = self.extended_shape(shape);
         let tiny = tiny(self.probs.kind()).unwrap();
-        let u = Tensor::empty(shape, (self.probs.kind(), self.probs.device())).uniform_(tiny, 1.0);
-        (u.log() / (-&self.probs).log1p()).floor()
+        tch::no_grad(|| {
+            let u =
+                Tensor::empty(&shape, (self.probs.kind(), self.probs.device())).uniform_(tiny, 1.0);
+            (u.log() / (-&self.probs).log1p()).floor()
+        })
     }
 
     fn entropy(&self) -> Tensor {
@@ -62,5 +71,9 @@ impl Distribution for Geometric {
             None,
             Reduction::None,
         ) / &self.probs
+    }
+
+    fn batch_shape(&self) -> &[i64] {
+        &self.batch_shape
     }
 }

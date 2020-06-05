@@ -1,18 +1,21 @@
-use crate::{utils::tiny, Distribution};
+use crate::Distribution;
 use tch::Tensor;
 
 /// A Gamma distribution.
 pub struct Gamma {
     concentration: Tensor,
     rate: Tensor,
+    batch_shape: Vec<i64>,
 }
 
 impl Gamma {
     // Creates a gamma distribution with`concentration` and `rate`.
     pub fn new(concentration: Tensor, rate: Tensor) -> Self {
+        let batch_shape = concentration.size();
         Self {
             concentration,
             rate,
+            batch_shape,
         }
     }
 
@@ -35,16 +38,17 @@ impl Distribution for Gamma {
     }
 
     fn sample(&self, shape: &[i64]) -> Tensor {
-        let samples = Tensor::empty(shape, (self.rate.kind(), self.rate.device()))
-            .internal_standard_gamma()
-            / &self.rate;
-        let tiny = tiny(samples.kind()).unwrap();
-        samples.detach().clamp_min(tiny)
+        let _shape = self.extended_shape(shape);
+        todo!("seems like some bindings are missing")
     }
 
     fn entropy(&self) -> Tensor {
         &self.concentration - self.rate.log()
             + self.concentration.lgamma()
             + (1.0 - &self.concentration) * self.concentration.digamma()
+    }
+
+    fn batch_shape(&self) -> &[i64] {
+        &self.batch_shape
     }
 }

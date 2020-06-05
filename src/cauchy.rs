@@ -6,12 +6,18 @@ use tch::Tensor;
 pub struct Cauchy {
     median: Tensor,
     scale: Tensor,
+    batch_shape: Vec<i64>,
 }
 
 impl Cauchy {
     /// Creates a new `Cauchy` distribution `median` and `scale` as half width of the maximum.
     pub fn new(median: Tensor, scale: Tensor) -> Self {
-        Self { median, scale }
+        let batch_shape = median.size();
+        Self {
+            median,
+            scale,
+            batch_shape,
+        }
     }
 
     /// Returns the median of the distribution.
@@ -31,8 +37,9 @@ impl Distribution for Cauchy {
     }
 
     fn sample(&self, shape: &[i64]) -> Tensor {
+        let shape = self.extended_shape(shape);
         let eps =
-            Tensor::empty(shape, (self.median.kind(), self.median.device())).cauchy_(0.0, 1.0);
+            Tensor::empty(&shape, (self.median.kind(), self.median.device())).cauchy_(0.0, 1.0);
         &self.median + eps * &self.scale
     }
 
@@ -46,5 +53,9 @@ impl Distribution for Cauchy {
 
     fn icdf(&self, val: &Tensor) -> Tensor {
         (PI * (val - 0.5)).tan() * &self.scale + &self.median
+    }
+
+    fn batch_shape(&self) -> &[i64] {
+        &self.batch_shape
     }
 }

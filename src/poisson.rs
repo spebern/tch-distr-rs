@@ -4,12 +4,14 @@ use tch::Tensor;
 /// A Poisson distribution.
 pub struct Poisson {
     rate: Tensor,
+    batch_shape: Vec<i64>,
 }
 
 impl Poisson {
     /// Creates a new `Poisson` distribution with `rate`.
     pub fn new(rate: Tensor) -> Self {
-        Self { rate }
+        let batch_shape = rate.size();
+        Self { rate, batch_shape }
     }
 
     /// Returns the rate of the distribution.
@@ -24,6 +26,11 @@ impl Distribution for Poisson {
     }
 
     fn sample(&self, shape: &[i64]) -> Tensor {
-        Tensor::empty(shape, (self.rate.kind(), self.rate.device())).poisson()
+        let shape = self.extended_shape(shape);
+        Tensor::empty(&shape, (self.rate.kind(), self.rate.device())).poisson()
+    }
+
+    fn batch_shape(&self) -> &[i64] {
+        &self.batch_shape
     }
 }
