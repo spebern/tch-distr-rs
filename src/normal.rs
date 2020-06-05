@@ -1,4 +1,4 @@
-use super::Distribution;
+use crate::Distribution;
 use std::f64::consts::PI;
 use tch::Tensor;
 

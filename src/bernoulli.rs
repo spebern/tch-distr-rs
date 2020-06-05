@@ -1,5 +1,7 @@
-use super::Distribution;
-use crate::utils::{logits_to_probs, probs_to_logits};
+use crate::{
+    utils::{logits_to_probs, probs_to_logits},
+    Distribution,
+};
 use tch::{Kind, Reduction, Tensor};
 
 /// A Bernoulli distribution.

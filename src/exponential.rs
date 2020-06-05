@@ -1,4 +1,4 @@
-use super::Distribution;
+use crate::Distribution;
 use tch::Tensor;
 
 /// An Exponential distribution.

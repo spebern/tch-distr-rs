@@ -1,5 +1,4 @@
-use super::Distribution;
-use crate::utils::tiny;
+use crate::{utils::tiny, Distribution};
 use tch::Tensor;
 
 /// A Gamma distribution.
