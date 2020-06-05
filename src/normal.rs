@@ -6,12 +6,18 @@ use tch::Tensor;
 pub struct Normal {
     mean: Tensor,
     stddev: Tensor,
+    batch_shape: Vec<i64>,
 }
 
 impl Normal {
     /// Creates a new `Normal` distribution with a standard deviation `stddev` around `mean`.
     pub fn new(mean: Tensor, stddev: Tensor) -> Self {
-        Self { mean, stddev }
+        let batch_shape = mean.size();
+        Self {
+            mean,
+            stddev,
+            batch_shape,
+        }
     }
 
     /// Returns the mean of the distribution.
@@ -31,10 +37,11 @@ impl Distribution for Normal {
     }
 
     fn sample(&self, shape: &[i64]) -> Tensor {
+        let shape = self.extended_shape(shape);
         Tensor::normal_out2(
-            &Tensor::empty(shape, (self.mean.kind(), self.mean.device())),
-            &self.mean,
-            &self.stddev,
+            &Tensor::empty(&shape, (self.mean.kind(), self.mean.device())),
+            &self.mean.expand(&shape, false),
+            &self.stddev.expand(&shape, false),
         )
     }
 
@@ -49,5 +56,9 @@ impl Distribution for Normal {
 
     fn icdf(&self, val: &Tensor) -> Tensor {
         &self.mean + &self.stddev * (2.0 * val - 1.0).erfinv() * 2.0f64.sqrt()
+    }
+
+    fn batch_shape(&self) -> &[i64] {
+        &self.batch_shape
     }
 }

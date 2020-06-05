@@ -7,40 +7,70 @@ use tch_distr::{
     Bernoulli, Cauchy, Distribution, Exponential, Gamma, Geometric, Normal, Poisson, Uniform,
 };
 
+const SEED: i64 = 42;
+
+struct PyEnv<'py> {
+    py: Python<'py>,
+    torch: &'py PyModule,
+    distributions: &'py PyModule,
+}
+
+impl<'py> PyEnv<'py> {
+    fn new(gil: &'py GILGuard) -> Self {
+        let py = gil.python();
+
+        let torch = PyModule::import(py, "torch").unwrap();
+        let distributions = PyModule::import(py, "torch.distributions").unwrap();
+
+        Self {
+            py,
+            torch,
+            distributions,
+        }
+    }
+}
+
 struct TestCases {
-    log_prob: Vec<Tensor>,
-    cdf: Vec<Tensor>,
-    icdf: Vec<Tensor>,
+    entropy: bool,
+    log_prob: Option<Vec<Tensor>>,
+    cdf: Option<Vec<Tensor>>,
+    icdf: Option<Vec<Tensor>>,
+    sample: Option<Vec<Vec<i64>>>,
 }
 
 impl Default for TestCases {
     fn default() -> Self {
         Self {
-            log_prob: vec![
+            entropy: true,
+            log_prob: Some(vec![
                 1.0.into(),
                 2.0.into(),
                 Tensor::of_slice(&[1.0, 1.0]),
                 Tensor::of_slice(&[2.0, 2.0]),
-            ],
-            cdf: vec![
+            ]),
+            cdf: Some(vec![
                 1.0.into(),
                 2.0.into(),
                 Tensor::of_slice(&[1.0, 1.0]),
                 Tensor::of_slice(&[2.0, 2.0]),
-            ],
-            icdf: vec![
+            ]),
+            icdf: Some(vec![
                 0.5.into(),
                 0.7.into(),
                 Tensor::of_slice(&[0.3, 0.4]),
                 Tensor::of_slice(&[0.2, 0.7]),
-            ],
+            ]),
+            sample: None,
         }
     }
 }
 
-fn tensor_to_py_obj<'py>(py: Python<'py>, torch: &'py PyModule, t: &Tensor) -> &'py PyAny {
+fn tensor_to_py_obj<'py>(py_env: &'py PyEnv, t: &Tensor) -> &'py PyAny {
     let array: ndarray::ArrayD<f64> = t.try_into().unwrap();
-    torch.call1("from_numpy", (array.to_pyarray(py),)).unwrap()
+    py_env
+        .torch
+        .call1("from_numpy", (array.to_pyarray(py_env.py),))
+        .unwrap()
 }
 
 fn assert_tensor_eq<'py>(py: Python<'py>, t: &Tensor, py_t: &PyAny) {
@@ -52,86 +82,77 @@ fn assert_tensor_eq<'py>(py: Python<'py>, t: &Tensor, py_t: &PyAny) {
     );
 }
 
-fn test_entropy<'py, D: Distribution>(py: Python<'py>, dist_rs: &D, dist_py: &PyAny) {
-    let entropy_py = dist_py.call_method("entropy", (), None).unwrap();
+fn test_entropy<D: Distribution>(py_env: &PyEnv, dist_rs: &D, dist_py: &PyAny) {
+    let entropy_py = dist_py.call_method0("entropy").unwrap();
     let entropy_rs = dist_rs.entropy();
-    assert_tensor_eq(py, &entropy_rs, entropy_py);
+    assert_tensor_eq(py_env.py, &entropy_rs, entropy_py);
 }
 
-fn test_log_prob<'py, D: Distribution>(
-    py: Python<'py>,
-    torch: &'py PyModule,
-    dist_rs: &D,
-    dist_py: &PyAny,
-    args: &[Tensor],
-) {
+fn test_log_prob<D: Distribution>(py_env: &PyEnv, dist_rs: &D, dist_py: &PyAny, args: &[Tensor]) {
     for args in args.iter() {
-        let args_py = PyTuple::new(py, vec![tensor_to_py_obj(py, torch, args)]);
-        let log_prob_py = dist_py.call_method("log_prob", args_py, None).unwrap();
+        let args_py = PyTuple::new(py_env.py, vec![tensor_to_py_obj(py_env, args)]);
+        let log_prob_py = dist_py.call_method1("log_prob", args_py).unwrap();
         let log_prob_rs = dist_rs.log_prob(args);
-        assert_tensor_eq(py, &log_prob_rs, log_prob_py);
+        assert_tensor_eq(py_env.py, &log_prob_rs, log_prob_py);
     }
 }
 
-fn test_cdf<'py, D: Distribution>(
-    py: Python<'py>,
-    torch: &'py PyModule,
-    dist_rs: &D,
-    dist_py: &PyAny,
-    args: &[Tensor],
-) {
+fn test_cdf<D: Distribution>(py_env: &PyEnv, dist_rs: &D, dist_py: &PyAny, args: &[Tensor]) {
     for args in args.iter() {
-        let args_py = PyTuple::new(py, vec![tensor_to_py_obj(py, torch, args)]);
-        let log_prob_py = dist_py.call_method("cdf", args_py, None).unwrap();
+        let args_py = PyTuple::new(py_env.py, vec![tensor_to_py_obj(py_env, args)]);
+        let log_prob_py = dist_py.call_method1("cdf", args_py).unwrap();
         let log_prob_rs = dist_rs.cdf(args);
-        assert_tensor_eq(py, &log_prob_rs, log_prob_py);
+        assert_tensor_eq(py_env.py, &log_prob_rs, log_prob_py);
     }
 }
 
-fn test_icdf<'py, D: Distribution>(
-    py: Python<'py>,
-    torch: &'py PyModule,
-    dist_rs: &D,
-    dist_py: &PyAny,
-    args: &[Tensor],
-) {
+fn test_icdf<D: Distribution>(py_env: &PyEnv, dist_rs: &D, dist_py: &PyAny, args: &[Tensor]) {
     for args in args.into_iter() {
-        let args_py = PyTuple::new(py, vec![tensor_to_py_obj(py, torch, args)]);
-        let log_prob_py = dist_py.call_method("icdf", args_py, None).unwrap();
+        let args_py = PyTuple::new(py_env.py, vec![tensor_to_py_obj(py_env, args)]);
+        let log_prob_py = dist_py.call_method1("icdf", args_py).unwrap();
         let log_prob_rs = dist_rs.icdf(args);
-        assert_tensor_eq(py, &log_prob_rs, log_prob_py);
+        assert_tensor_eq(py_env.py, &log_prob_rs, log_prob_py);
     }
 }
 
-fn run_test_cases<'py, D, T, U>(
-    py: Python<'py>,
-    torch: &'py PyModule,
-    dist_rs: D,
-    dist_name: &str,
-    dist_args: impl IntoIterator<Item = T, IntoIter = U>,
-    test_cases: &TestCases,
-) where
+fn test_sample<D: Distribution>(py_env: &PyEnv, dist_rs: &D, dist_py: &PyAny, args: &[Vec<i64>]) {
+    for args in args.into_iter() {
+        // We need to ensure that we always start with the same seed.
+        tch::manual_seed(SEED);
+        let samples_py = dist_py
+            .call_method1("sample", (args.to_object(py_env.py),))
+            .unwrap();
+        tch::manual_seed(SEED);
+        let samples_rs = dist_rs.sample(args);
+        assert_tensor_eq(py_env.py, &samples_rs, samples_py);
+    }
+}
+
+fn run_test_cases<D>(py_env: &PyEnv, dist_rs: D, dist_py: &PyAny, test_cases: &TestCases)
+where
     D: Distribution,
-    T: ToPyObject,
-    U: ExactSizeIterator<Item = T>,
 {
-    let distributions = PyModule::import(py, "torch.distributions").unwrap();
-
-    let dist_args = PyTuple::new(py, dist_args);
-    let dist_py = distributions.call1(dist_name, dist_args).unwrap();
-
-    test_entropy(py, &dist_rs, dist_py);
-    test_log_prob(py, torch, &dist_rs, dist_py, &test_cases.log_prob);
-    test_cdf(py, torch, &dist_rs, dist_py, &test_cases.cdf);
-    test_icdf(py, torch, &dist_rs, dist_py, &test_cases.icdf);
+    if test_cases.entropy {
+        test_entropy(py_env, &dist_rs, dist_py);
+    }
+    if let Some(log_prob) = test_cases.log_prob.as_ref() {
+        test_log_prob(py_env, &dist_rs, dist_py, &log_prob);
+    }
+    if let Some(cdf) = test_cases.cdf.as_ref() {
+        test_cdf(py_env, &dist_rs, dist_py, &cdf);
+    }
+    if let Some(icdf) = test_cases.icdf.as_ref() {
+        test_icdf(py_env, &dist_rs, dist_py, icdf);
+    }
+    if let Some(sample) = test_cases.sample.as_ref() {
+        test_sample(py_env, &dist_rs, dist_py, sample);
+    }
 }
 
 #[test]
 fn normal() {
     let gil = Python::acquire_gil();
-    let py = gil.python();
-
-    let torch = PyModule::import(py, "torch").unwrap();
+    let py_env = PyEnv::new(&gil);
 
     let args: Vec<(Tensor, Tensor)> = vec![
         (1.0.into(), 2.0.into()),
@@ -139,24 +160,29 @@ fn normal() {
         (Tensor::of_slice(&[1.0, 1.0]), Tensor::of_slice(&[2.0, 2.0])),
     ];
 
-    let test_cases = TestCases::default();
-    for (mean, std) in args.into_iter() {
-        let args_py = vec![
-            tensor_to_py_obj(py, torch, &mean),
-            tensor_to_py_obj(py, torch, &std),
-        ];
-        let dist_rs = Normal::new(mean, std);
+    let mut test_cases = TestCases::default();
+    test_cases.sample = Some(vec![vec![1], vec![1, 2]]);
 
-        run_test_cases(py, torch, dist_rs, "Normal", args_py, &test_cases);
+    for (mean, std) in args.into_iter() {
+        let dist_py = py_env
+            .distributions
+            .call1(
+                "Normal",
+                (
+                    tensor_to_py_obj(&py_env, &mean),
+                    tensor_to_py_obj(&py_env, &std),
+                ),
+            )
+            .unwrap();
+        let dist_rs = Normal::new(mean, std);
+        run_test_cases(&py_env, dist_rs, dist_py, &test_cases);
     }
 }
 
 #[test]
 fn uniform() {
     let gil = Python::acquire_gil();
-    let py = gil.python();
-
-    let torch = PyModule::import(py, "torch").unwrap();
+    let py_env = PyEnv::new(&gil);
 
     let args: Vec<(Tensor, Tensor)> = vec![
         (1.0.into(), 2.0.into()),
@@ -165,63 +191,69 @@ fn uniform() {
     ];
 
     let test_cases = TestCases::default();
-    for (low, high) in args.into_iter() {
-        let args_py = vec![
-            tensor_to_py_obj(py, torch, &low),
-            tensor_to_py_obj(py, torch, &high),
-        ];
-        let dist_rs = Uniform::new(low, high);
 
-        run_test_cases(py, torch, dist_rs, "Uniform", args_py, &test_cases);
+    for (low, high) in args.into_iter() {
+        let dist_py = py_env
+            .distributions
+            .call1(
+                "Uniform",
+                (
+                    tensor_to_py_obj(&py_env, &low),
+                    tensor_to_py_obj(&py_env, &high),
+                ),
+            )
+            .unwrap();
+        let dist_rs = Uniform::new(low, high);
+        run_test_cases(&py_env, dist_rs, dist_py, &test_cases);
     }
 }
 
 #[test]
 fn bernoulli() {
     let gil = Python::acquire_gil();
-    let py = gil.python();
-
-    let torch = PyModule::import(py, "torch").unwrap();
-    let distributions = PyModule::import(py, "torch.distributions").unwrap();
+    let py_env = PyEnv::new(&gil);
 
     let probs: Vec<Tensor> = vec![0.1337.into(), 0.6667.into()];
 
-    let test_cases = TestCases::default();
-    for probs in probs.into_iter() {
-        let args_py = vec![tensor_to_py_obj(py, torch, &probs)];
-        let dist_py = distributions
-            .call1("Bernoulli", PyTuple::new(py, args_py))
-            .unwrap();
+    let mut test_cases = TestCases::default();
+    test_cases.icdf = None;
+    test_cases.cdf = None;
 
+    for probs in probs.into_iter() {
+        let dist_py = py_env
+            .distributions
+            .call1("Bernoulli", (tensor_to_py_obj(&py_env, &probs),))
+            .unwrap();
         let dist_rs = Bernoulli::from_probs(probs);
-        test_entropy(py, &dist_rs, dist_py);
-        test_log_prob(py, torch, &dist_rs, dist_py, &test_cases.log_prob);
+        run_test_cases(&py_env, dist_rs, dist_py, &test_cases);
     }
 
     let logits: Vec<Tensor> = vec![0.1337.into(), 0.6667.into()];
 
-    let test_cases = TestCases::default();
+    let mut test_cases = TestCases::default();
+    test_cases.icdf = None;
+    test_cases.cdf = None;
+
     for logits in logits.into_iter() {
-        let dist_py = distributions
+        let dist_py = py_env
+            .distributions
             .call1(
                 "Bernoulli",
-                (pyo3::Python::None(py), tensor_to_py_obj(py, torch, &logits)),
+                (
+                    pyo3::Python::None(py_env.py),
+                    tensor_to_py_obj(&py_env, &logits).to_object(py_env.py),
+                ),
             )
             .unwrap();
-
         let dist_rs = Bernoulli::from_logits(logits);
-        test_entropy(py, &dist_rs, dist_py);
-        test_log_prob(py, torch, &dist_rs, dist_py, &test_cases.log_prob);
+        run_test_cases(&py_env, dist_rs, dist_py, &test_cases);
     }
 }
 
 #[test]
 fn poisson() {
     let gil = Python::acquire_gil();
-    let py = gil.python();
-
-    let torch = PyModule::import(py, "torch").unwrap();
-    let distributions = PyModule::import(py, "torch.distributions").unwrap();
+    let py_env = PyEnv::new(&gil);
 
     let rates: Vec<Tensor> = vec![
         0.1337.into(),
@@ -229,24 +261,25 @@ fn poisson() {
         Tensor::of_slice(&[0.156, 0.33]),
     ];
 
-    let test_cases = TestCases::default();
-    for rate in rates.into_iter() {
-        let args_py = vec![tensor_to_py_obj(py, torch, &rate)];
-        let dist_py = distributions
-            .call1("Poisson", PyTuple::new(py, args_py))
-            .unwrap();
+    let mut test_cases = TestCases::default();
+    test_cases.cdf = None;
+    test_cases.icdf = None;
+    test_cases.entropy = false;
 
+    for rate in rates.into_iter() {
+        let dist_py = py_env
+            .distributions
+            .call1("Poisson", (tensor_to_py_obj(&py_env, &rate),))
+            .unwrap();
         let dist_rs = Poisson::new(rate);
-        test_log_prob(py, torch, &dist_rs, dist_py, &test_cases.log_prob);
+        run_test_cases(&py_env, dist_rs, dist_py, &test_cases);
     }
 }
 
 #[test]
 fn exponential() {
     let gil = Python::acquire_gil();
-    let py = gil.python();
-
-    let torch = PyModule::import(py, "torch").unwrap();
+    let py_env = PyEnv::new(&gil);
 
     let rates: Vec<Tensor> = vec![
         0.1337.into(),
@@ -255,20 +288,21 @@ fn exponential() {
     ];
 
     let test_cases = TestCases::default();
-    for rate in rates.into_iter() {
-        let args_py = vec![tensor_to_py_obj(py, torch, &rate)];
-        let dist_rs = Exponential::new(rate);
 
-        run_test_cases(py, torch, dist_rs, "Exponential", args_py, &test_cases);
+    for rate in rates.into_iter() {
+        let dist_py = py_env
+            .distributions
+            .call1("Exponential", (tensor_to_py_obj(&py_env, &rate),))
+            .unwrap();
+        let dist_rs = Exponential::new(rate);
+        run_test_cases(&py_env, dist_rs, dist_py, &test_cases);
     }
 }
 
 #[test]
 fn cauchy() {
     let gil = Python::acquire_gil();
-    let py = gil.python();
-
-    let torch = PyModule::import(py, "torch").unwrap();
+    let py_env = PyEnv::new(&gil);
 
     let args: Vec<(Tensor, Tensor)> = vec![
         (1.0.into(), 2.0.into()),
@@ -277,24 +311,27 @@ fn cauchy() {
     ];
 
     let test_cases = TestCases::default();
-    for (median, scale) in args.into_iter() {
-        let args_py = vec![
-            tensor_to_py_obj(py, torch, &median),
-            tensor_to_py_obj(py, torch, &scale),
-        ];
-        let dist_rs = Cauchy::new(median, scale);
 
-        run_test_cases(py, torch, dist_rs, "Cauchy", args_py, &test_cases);
+    for (median, scale) in args.into_iter() {
+        let dist_py = py_env
+            .distributions
+            .call1(
+                "Cauchy",
+                (
+                    tensor_to_py_obj(&py_env, &median),
+                    tensor_to_py_obj(&py_env, &scale),
+                ),
+            )
+            .unwrap();
+        let dist_rs = Cauchy::new(median, scale);
+        run_test_cases(&py_env, dist_rs, dist_py, &test_cases);
     }
 }
 
 #[test]
 fn gamma() {
     let gil = Python::acquire_gil();
-    let py = gil.python();
-
-    let torch = PyModule::import(py, "torch").unwrap();
-    let distributions = PyModule::import(py, "torch.distributions").unwrap();
+    let py_env = PyEnv::new(&gil);
 
     let args: Vec<(Tensor, Tensor)> = vec![
         (1.0.into(), 2.0.into()),
@@ -302,58 +339,64 @@ fn gamma() {
         (Tensor::of_slice(&[1.0, 1.0]), Tensor::of_slice(&[2.0, 2.0])),
     ];
 
-    let test_cases = TestCases::default();
+    let mut test_cases = TestCases::default();
+    test_cases.cdf = None;
+    test_cases.icdf = None;
+
     for (concentration, rate) in args.into_iter() {
-        let args_py = vec![
-            tensor_to_py_obj(py, torch, &concentration),
-            tensor_to_py_obj(py, torch, &rate),
-        ];
-        let dist_py = distributions
-            .call1("Gamma", PyTuple::new(py, args_py))
+        let dist_py = py_env
+            .distributions
+            .call1(
+                "Gamma",
+                (
+                    tensor_to_py_obj(&py_env, &concentration),
+                    tensor_to_py_obj(&py_env, &rate),
+                ),
+            )
             .unwrap();
-
         let dist_rs = Gamma::new(concentration, rate);
-
-        test_log_prob(py, torch, &dist_rs, dist_py, &test_cases.log_prob);
-        test_entropy(py, &dist_rs, dist_py);
+        run_test_cases(&py_env, dist_rs, dist_py, &test_cases);
     }
 }
 
 #[test]
 fn geometric() {
     let gil = Python::acquire_gil();
-    let py = gil.python();
-
-    let torch = PyModule::import(py, "torch").unwrap();
-    let distributions = PyModule::import(py, "torch.distributions").unwrap();
+    let py_env = PyEnv::new(&gil);
 
     let probs: Vec<Tensor> = vec![0.1337.into(), 0.6667.into(), 1.0.into()];
 
-    let test_cases = TestCases::default();
-    for probs in probs.into_iter() {
-        let args_py = vec![tensor_to_py_obj(py, torch, &probs)];
-        let dist_py = distributions
-            .call1("Geometric", PyTuple::new(py, args_py))
-            .unwrap();
+    let mut test_cases = TestCases::default();
+    test_cases.icdf = None;
+    test_cases.cdf = None;
 
+    for probs in probs.into_iter() {
+        let dist_py = py_env
+            .distributions
+            .call1("Geometric", (tensor_to_py_obj(&py_env, &probs),))
+            .unwrap();
         let dist_rs = Geometric::from_probs(probs);
-        test_entropy(py, &dist_rs, dist_py);
-        test_log_prob(py, torch, &dist_rs, dist_py, &test_cases.log_prob);
+        run_test_cases(&py_env, dist_rs, dist_py, &test_cases);
     }
 
     let logits: Vec<Tensor> = vec![0.1337.into(), 0.6667.into(), 1.0.into()];
 
-    let test_cases = TestCases::default();
+    let mut test_cases = TestCases::default();
+    test_cases.icdf = None;
+    test_cases.cdf = None;
+
     for logits in logits.into_iter() {
-        let dist_py = distributions
+        let dist_py = py_env
+            .distributions
             .call1(
                 "Geometric",
-                (pyo3::Python::None(py), tensor_to_py_obj(py, torch, &logits)),
+                (
+                    pyo3::Python::None(py_env.py),
+                    tensor_to_py_obj(&py_env, &logits).to_object(py_env.py),
+                ),
             )
             .unwrap();
-
         let dist_rs = Geometric::from_logits(logits);
-        test_entropy(py, &dist_rs, dist_py);
-        test_log_prob(py, torch, &dist_rs, dist_py, &test_cases.log_prob);
+        run_test_cases(&py_env, dist_rs, dist_py, &test_cases);
     }
 }

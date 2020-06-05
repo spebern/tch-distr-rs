@@ -32,6 +32,21 @@ pub trait Distribution {
     /// Generates a sample_shape shaped sample or sample_shape shaped batch of
     /// samples if the distribution parameters are batched.
     fn sample(&self, shape: &[i64]) -> Tensor;
+
+    #[doc(hidden)]
+    fn batch_shape(&self) -> &[i64] {
+        &[]
+    }
+
+    #[doc(hidden)]
+    fn event_shape(&self) -> &[i64] {
+        &[]
+    }
+
+    #[doc(hidden)]
+    fn extended_shape(&self, shape: &[i64]) -> Vec<i64> {
+        [shape, self.batch_shape(), self.event_shape()].concat()
+    }
 }
 
 pub use bernoulli::Bernoulli;
