@@ -1,19 +1,14 @@
-use lazy_static::lazy_static;
 use ndarray::ArrayD;
 use numpy::{PyArrayDyn, ToPyArray};
 use pyo3::{prelude::*, types::PyTuple};
-use std::{convert::TryInto, sync::Mutex};
+use serial_test::serial;
+use std::convert::TryInto;
 use tch::Tensor;
 use tch_distr::{
     Bernoulli, Cauchy, Distribution, Exponential, Gamma, Geometric, Normal, Poisson, Uniform,
 };
 
 const SEED: i64 = 42;
-
-lazy_static! {
-    // This mutex is used to avoid data races while seeding in libtorch.
-    static ref SAMPLE_MU: Mutex<()> = Mutex::new(());
-}
 
 struct PyEnv<'py> {
     py: Python<'py>,
@@ -123,7 +118,6 @@ fn test_icdf<D: Distribution>(py_env: &PyEnv, dist_rs: &D, dist_py: &PyAny, args
 
 fn test_sample<D: Distribution>(py_env: &PyEnv, dist_rs: &D, dist_py: &PyAny, args: &[Vec<i64>]) {
     for args in args.into_iter() {
-        let _lock = SAMPLE_MU.lock().unwrap();
         // We need to ensure that we always start with the same seed.
         tch::manual_seed(SEED);
         let samples_py = dist_py
@@ -157,6 +151,7 @@ where
 }
 
 #[test]
+#[serial]
 fn normal() {
     let gil = Python::acquire_gil();
     let py_env = PyEnv::new(&gil);
@@ -187,6 +182,7 @@ fn normal() {
 }
 
 #[test]
+#[serial]
 fn uniform() {
     let gil = Python::acquire_gil();
     let py_env = PyEnv::new(&gil);
@@ -217,6 +213,7 @@ fn uniform() {
 }
 
 #[test]
+#[serial]
 fn bernoulli() {
     let gil = Python::acquire_gil();
     let py_env = PyEnv::new(&gil);
@@ -259,6 +256,7 @@ fn bernoulli() {
 }
 
 #[test]
+#[serial]
 fn poisson() {
     let gil = Python::acquire_gil();
     let py_env = PyEnv::new(&gil);
@@ -285,6 +283,7 @@ fn poisson() {
 }
 
 #[test]
+#[serial]
 fn exponential() {
     let gil = Python::acquire_gil();
     let py_env = PyEnv::new(&gil);
@@ -308,6 +307,7 @@ fn exponential() {
 }
 
 #[test]
+#[serial]
 fn cauchy() {
     let gil = Python::acquire_gil();
     let py_env = PyEnv::new(&gil);
@@ -337,6 +337,7 @@ fn cauchy() {
 }
 
 #[test]
+#[serial]
 fn gamma() {
     let gil = Python::acquire_gil();
     let py_env = PyEnv::new(&gil);
@@ -368,6 +369,7 @@ fn gamma() {
 }
 
 #[test]
+#[serial]
 fn geometric() {
     let gil = Python::acquire_gil();
     let py_env = PyEnv::new(&gil);
