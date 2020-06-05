@@ -5,12 +5,18 @@ use tch::Tensor;
 pub struct Uniform {
     low: Tensor,
     high: Tensor,
+    batch_shape: Vec<i64>,
 }
 
 impl Uniform {
     // Generates uniformly distributed random samples from the half-open interval [low, high).
     pub fn new(low: Tensor, high: Tensor) -> Self {
-        Self { low, high }
+        let batch_shape = low.size();
+        Self {
+            low,
+            high,
+            batch_shape,
+        }
     }
 
     /// Returns the lower range (inclusive).
@@ -44,7 +50,12 @@ impl Distribution for Uniform {
     }
 
     fn sample(&self, shape: &[i64]) -> Tensor {
-        let rand = Tensor::randn(shape, (self.low.kind(), self.high.device()));
+        let shape = self.extended_shape(shape);
+        let rand = Tensor::rand(&shape, (self.low.kind(), self.high.device()));
         &self.low + &rand * (&self.high - &self.low)
+    }
+
+    fn batch_shape(&self) -> &[i64] {
+        &self.batch_shape
     }
 }
