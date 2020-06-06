@@ -5,10 +5,21 @@ use crate::{
 use tch::{Reduction, Tensor};
 
 /// A Geometric distribution.
+#[derive(Debug)]
 pub struct Geometric {
     probs: Tensor,
     logits: Tensor,
     batch_shape: Vec<i64>,
+}
+
+impl Clone for Geometric {
+    fn clone(&self) -> Self {
+        Self {
+            probs: self.probs.copy(),
+            logits: self.logits.copy(),
+            batch_shape: self.batch_shape.clone(),
+        }
+    }
 }
 
 impl Geometric {

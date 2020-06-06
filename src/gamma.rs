@@ -2,10 +2,21 @@ use crate::Distribution;
 use tch::Tensor;
 
 /// A Gamma distribution.
+#[derive(Debug)]
 pub struct Gamma {
     concentration: Tensor,
     rate: Tensor,
     batch_shape: Vec<i64>,
+}
+
+impl Clone for Gamma {
+    fn clone(&self) -> Self {
+        Self {
+            concentration: self.concentration.copy(),
+            rate: self.rate.copy(),
+            batch_shape: self.batch_shape.clone(),
+        }
+    }
 }
 
 impl Gamma {

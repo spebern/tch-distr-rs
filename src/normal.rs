@@ -3,10 +3,21 @@ use std::f64::consts::PI;
 use tch::Tensor;
 
 /// A Guassian distribution.
+#[derive(Debug)]
 pub struct Normal {
     mean: Tensor,
     stddev: Tensor,
     batch_shape: Vec<i64>,
+}
+
+impl Clone for Normal {
+    fn clone(&self) -> Self {
+        Self {
+            mean: self.mean.copy(),
+            stddev: self.stddev.copy(),
+            batch_shape: self.batch_shape.clone(),
+        }
+    }
 }
 
 impl Normal {

@@ -2,9 +2,19 @@ use crate::Distribution;
 use tch::Tensor;
 
 /// An Exponential distribution.
+#[derive(Debug)]
 pub struct Exponential {
     rate: Tensor,
     batch_shape: Vec<i64>,
+}
+
+impl Clone for Exponential {
+    fn clone(&self) -> Self {
+        Self {
+            rate: self.rate.copy(),
+            batch_shape: self.batch_shape.clone(),
+        }
+    }
 }
 
 impl Exponential {

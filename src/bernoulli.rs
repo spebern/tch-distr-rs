@@ -5,9 +5,19 @@ use crate::{
 use tch::{Kind, Reduction, Tensor};
 
 /// A Bernoulli distribution.
+#[derive(Debug)]
 pub struct Bernoulli {
     probs: Tensor,
     logits: Tensor,
+}
+
+impl Clone for Bernoulli {
+    fn clone(&self) -> Self {
+        Self {
+            probs: self.probs.copy(),
+            logits: self.logits.copy(),
+        }
+    }
 }
 
 impl Bernoulli {

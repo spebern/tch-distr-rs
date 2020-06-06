@@ -2,10 +2,21 @@ use crate::Distribution;
 use tch::Tensor;
 
 /// A Uniform distribution.
+#[derive(Debug)]
 pub struct Uniform {
     low: Tensor,
     high: Tensor,
     batch_shape: Vec<i64>,
+}
+
+impl Clone for Uniform {
+    fn clone(&self) -> Self {
+        Self {
+            low: self.low.copy(),
+            high: self.high.copy(),
+            batch_shape: self.batch_shape.clone(),
+        }
+    }
 }
 
 impl Uniform {

@@ -3,10 +3,21 @@ use std::f64::consts::PI;
 use tch::Tensor;
 
 /// A Cauchy distribution.
+#[derive(Debug)]
 pub struct Cauchy {
     median: Tensor,
     scale: Tensor,
     batch_shape: Vec<i64>,
+}
+
+impl Clone for Cauchy {
+    fn clone(&self) -> Self {
+        Self {
+            median: self.median.copy(),
+            scale: self.scale.copy(),
+            batch_shape: self.batch_shape.clone(),
+        }
+    }
 }
 
 impl Cauchy {
