@@ -49,7 +49,7 @@ Using `community/python-pytorch` instead worked for me.
 - [ ] lowrank_multivariate_normal
 - [ ] mixture_same_family
 - [ ] multinomial
-- [ ] multivariate_normal
+- [x] multivariate_normal
 - [ ] negative_binomial
 - [x] normal
 - [ ] one_hot_categorical

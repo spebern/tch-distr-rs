@@ -1,11 +1,12 @@
-use ndarray::ArrayD;
+use ndarray::{array, ArrayD};
 use numpy::{PyArrayDyn, ToPyArray};
 use pyo3::{prelude::*, types::PyTuple};
 use serial_test::serial;
-use std::convert::TryInto;
+use std::convert::{TryFrom, TryInto};
 use tch::Tensor;
 use tch_distr::{
-    Bernoulli, Cauchy, Distribution, Exponential, Gamma, Geometric, Normal, Poisson, Uniform,
+    Bernoulli, Cauchy, Distribution, Exponential, Gamma, Geometric, MultivariateNormal, Normal,
+    Poisson, Uniform,
 };
 
 const SEED: i64 = 42;
@@ -413,6 +414,100 @@ fn geometric() {
             )
             .unwrap();
         let dist_rs = Geometric::from_logits(logits);
+        run_test_cases(&py_env, dist_rs, dist_py, &test_cases);
+    }
+}
+
+#[test]
+#[serial]
+fn multivariate_normal() {
+    let gil = Python::acquire_gil();
+    let py_env = PyEnv::new(&gil);
+
+    let mean_and_covs: Vec<(Tensor, Tensor)> = vec![
+        (
+            Tensor::of_slice(&[1.0]),
+            Tensor::try_from(array![[1.0, 0.0], [0.0, 1.0]]).unwrap(),
+        ),
+        (
+            Tensor::of_slice(&[1.0, 2.0, 3.0]),
+            Tensor::try_from(array![[3.0, 0.0, 0.0], [0.0, 7.0, 0.0], [0.0, 0.0, 10.0]]).unwrap(),
+        ),
+    ];
+
+    let mut test_cases = TestCases::default();
+    test_cases.icdf = None;
+    test_cases.cdf = None;
+    test_cases.entropy = false;
+    //test_cases.sample = Some(vec![vec![1], vec![1, 2]]);
+    test_cases.sample = Some(vec![vec![1]]);
+    test_cases.log_prob = None;
+
+    for (mean, cov) in mean_and_covs.into_iter() {
+        let dist_py = py_env
+            .distributions
+            .call1(
+                "MultivariateNormal",
+                (
+                    tensor_to_py_obj(&py_env, &mean),
+                    tensor_to_py_obj(&py_env, &cov),
+                ),
+            )
+            .unwrap();
+        let dist_rs = MultivariateNormal::from_cov(mean, cov);
+        run_test_cases(&py_env, dist_rs, dist_py, &test_cases);
+    }
+
+    let mean_and_precisions: Vec<(Tensor, Tensor)> = vec![(
+        Tensor::of_slice(&[1.0]),
+        Tensor::try_from(array![[1.0, 0.0], [0.0, 1.0]]).unwrap(),
+    )];
+
+    let mut test_cases = TestCases::default();
+    test_cases.icdf = None;
+    test_cases.cdf = None;
+    test_cases.sample = Some(vec![vec![1], vec![1, 2]]);
+
+    for (mean, precision) in mean_and_precisions.into_iter() {
+        let dist_py = py_env
+            .distributions
+            .call1(
+                "MultivariateNormal",
+                (
+                    tensor_to_py_obj(&py_env, &mean),
+                    pyo3::Python::None(py_env.py),
+                    tensor_to_py_obj(&py_env, &precision),
+                ),
+            )
+            .unwrap();
+        let dist_rs = MultivariateNormal::from_precision(mean, precision);
+        run_test_cases(&py_env, dist_rs, dist_py, &test_cases);
+    }
+
+    let mean_and_scale_trils: Vec<(Tensor, Tensor)> = vec![(
+        Tensor::of_slice(&[1.0]),
+        Tensor::try_from(array![[1.0, 0.0], [0.0, 1.0]]).unwrap(),
+    )];
+
+    let mut test_cases = TestCases::default();
+    test_cases.icdf = None;
+    test_cases.cdf = None;
+    test_cases.sample = Some(vec![vec![1], vec![1, 2]]);
+
+    for (mean, scale_tril) in mean_and_scale_trils.into_iter() {
+        let dist_py = py_env
+            .distributions
+            .call1(
+                "MultivariateNormal",
+                (
+                    tensor_to_py_obj(&py_env, &mean),
+                    pyo3::Python::None(py_env.py),
+                    pyo3::Python::None(py_env.py),
+                    tensor_to_py_obj(&py_env, &scale_tril),
+                ),
+            )
+            .unwrap();
+        let dist_rs = MultivariateNormal::from_scale_tril(mean, scale_tril);
         run_test_cases(&py_env, dist_rs, dist_py, &test_cases);
     }
 }
