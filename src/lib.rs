@@ -50,6 +50,10 @@ pub trait Distribution {
     }
 }
 
+pub trait KullackLeiberDivergence<D: Distribution> {
+    fn kl_divergence(&self, other: &D) -> Tensor;
+}
+
 pub use bernoulli::Bernoulli;
 pub use cauchy::Cauchy;
 pub use exponential::Exponential;
