@@ -5,8 +5,8 @@ use serial_test::serial;
 use std::convert::{TryFrom, TryInto};
 use tch::Tensor;
 use tch_distr::{
-    Bernoulli, Cauchy, Distribution, Exponential, Gamma, Geometric, MultivariateNormal, Normal,
-    Poisson, Uniform,
+    Bernoulli, Cauchy, Distribution, Exponential, Gamma, Geometric, KullackLeiberDivergence,
+    MultivariateNormal, Normal, Poisson, Uniform,
 };
 
 const SEED: i64 = 42;
@@ -15,6 +15,7 @@ struct PyEnv<'py> {
     py: Python<'py>,
     torch: &'py PyModule,
     distributions: &'py PyModule,
+    kl: &'py PyModule,
 }
 
 impl<'py> PyEnv<'py> {
@@ -23,11 +24,13 @@ impl<'py> PyEnv<'py> {
 
         let torch = PyModule::import(py, "torch").unwrap();
         let distributions = PyModule::import(py, "torch.distributions").unwrap();
+        let kl = PyModule::import(py, "torch.distributions.kl").unwrap();
 
         Self {
             py,
             torch,
             distributions,
+            kl,
         }
     }
 }
@@ -130,6 +133,22 @@ fn test_sample<D: Distribution>(py_env: &PyEnv, dist_rs: &D, dist_py: &PyAny, ar
     }
 }
 
+fn test_kl_divergence<P, Q>(
+    py_env: &PyEnv,
+    dist_p_rs: &P,
+    dist_q_rs: &Q,
+    dist_p_py: &PyAny,
+    dist_q_py: &PyAny,
+) where
+    P: Distribution + KullackLeiberDivergence<Q>,
+    Q: Distribution,
+{
+    let args_py = PyTuple::new(py_env.py, vec![dist_p_py, dist_q_py]);
+    let kl_divergence_py = py_env.kl.call_method1("kl_divergence", args_py).unwrap();
+    let kl_divergence_rs = dist_p_rs.kl_divergence(&dist_q_rs);
+    assert_tensor_eq(py_env.py, &kl_divergence_rs, kl_divergence_py);
+}
+
 fn run_test_cases<D>(py_env: &PyEnv, dist_rs: D, dist_py: &PyAny, test_cases: &TestCases)
 where
     D: Distribution,
@@ -179,6 +198,37 @@ fn normal() {
             .unwrap();
         let dist_rs = Normal::new(mean, std);
         run_test_cases(&py_env, dist_rs, dist_py, &test_cases);
+    }
+
+    let p_q_mean_std: Vec<((Tensor, Tensor), (Tensor, Tensor))> =
+        vec![((1.0.into(), 2.0.into()), (2.0.into(), 3.0.into()))];
+
+    for ((p_mean, p_std), (q_mean, q_std)) in p_q_mean_std {
+        let dist_p_py = py_env
+            .distributions
+            .call1(
+                "Normal",
+                (
+                    tensor_to_py_obj(&py_env, &p_mean),
+                    tensor_to_py_obj(&py_env, &p_std),
+                ),
+            )
+            .unwrap();
+        let dist_p_rs = Normal::new(p_mean, p_std);
+
+        let dist_q_py = py_env
+            .distributions
+            .call1(
+                "Normal",
+                (
+                    tensor_to_py_obj(&py_env, &q_mean),
+                    tensor_to_py_obj(&py_env, &q_std),
+                ),
+            )
+            .unwrap();
+        let dist_q_rs = Normal::new(q_mean, q_std);
+
+        test_kl_divergence(&py_env, &dist_p_rs, &dist_q_rs, dist_p_py, dist_q_py);
     }
 }
 

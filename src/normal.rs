@@ -1,4 +1,4 @@
-use crate::Distribution;
+use crate::{Distribution, KullackLeiberDivergence};
 use std::f64::consts::PI;
 use tch::Tensor;
 
@@ -71,5 +71,13 @@ impl Distribution for Normal {
 
     fn batch_shape(&self) -> &[i64] {
         &self.batch_shape
+    }
+}
+
+impl KullackLeiberDivergence<Self> for Normal {
+    fn kl_divergence(&self, other: &Self) -> Tensor {
+        let var_ratio = (self.stddev() / other.stddev()).pow(2.0);
+        let t1 = ((self.mean() - other.mean()) / other.stddev()).pow(2.0);
+        &0.5.into() * (&var_ratio + &t1 - &1.into() - var_ratio.log())
     }
 }
