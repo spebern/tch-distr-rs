@@ -1,4 +1,4 @@
-use crate::Distribution;
+use crate::{utils::infinity, Distribution, KullackLeiberDivergence};
 use tch::Tensor;
 
 /// A Uniform distribution.
@@ -68,5 +68,18 @@ impl Distribution for Uniform {
 
     fn batch_shape(&self) -> &[i64] {
         &self.batch_shape
+    }
+}
+
+impl KullackLeiberDivergence<Self> for Uniform {
+    fn kl_divergence(&self, other: &Self) -> Tensor {
+        let result = ((other.high() - other.low()) / (self.high() - self.low())).log();
+        result.where1(
+            &other
+                .low()
+                .le1(self.low())
+                .logical_and(&other.high().ge1(self.high())),
+            &infinity(result.kind()),
+        )
     }
 }

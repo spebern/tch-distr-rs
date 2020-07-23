@@ -41,3 +41,11 @@ pub fn logits_to_probs(logits: &Tensor, is_binary: bool) -> Tensor {
         logits.softmax(-1, logits.kind())
     }
 }
+
+pub fn infinity(kind: Kind) -> Tensor {
+    match kind {
+        Kind::Float => std::f32::INFINITY.into(),
+        Kind::Double => std::f64::INFINITY.into(),
+        k => panic!("{:?} cannot represent infinity", k),
+    }
+}
