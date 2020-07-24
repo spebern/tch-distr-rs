@@ -1,4 +1,4 @@
-use crate::Distribution;
+use crate::{Distribution, KullackLeiberDivergence};
 use tch::Tensor;
 
 /// A Gamma distribution.
@@ -61,5 +61,15 @@ impl Distribution for Gamma {
 
     fn batch_shape(&self) -> &[i64] {
         &self.batch_shape
+    }
+}
+
+impl KullackLeiberDivergence<Self> for Gamma {
+    fn kl_divergence(&self, other: &Self) -> Tensor {
+        let t1 = other.concentration() * (self.rate() / other.rate()).log();
+        let t2 = other.concentration().lgamma() - self.concentration().lgamma();
+        let t3 = (self.concentration() - other.concentration()) * self.concentration().digamma();
+        let t4 = (other.rate() - self.rate()) * (self.concentration() / self.rate());
+        t1 + t2 + t3 + t4
     }
 }

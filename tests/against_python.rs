@@ -473,6 +473,37 @@ fn gamma() {
         let dist_rs = Gamma::new(concentration, rate);
         run_test_cases(&py_env, dist_rs, dist_py, &test_cases);
     }
+
+    let p_q_concentration_rate: Vec<((Tensor, Tensor), (Tensor, Tensor))> =
+        vec![((0.3.into(), 0.7.into()), (0.6.into(), 0.5.into()))];
+
+    for ((p_concentration, p_rate), (q_concentration, q_rate)) in p_q_concentration_rate {
+        let dist_p_py = py_env
+            .distributions
+            .call1(
+                "Gamma",
+                (
+                    tensor_to_py_obj(&py_env, &p_concentration),
+                    tensor_to_py_obj(&py_env, &p_rate),
+                ),
+            )
+            .unwrap();
+        let dist_p_rs = Gamma::new(p_concentration, p_rate);
+
+        let dist_q_py = py_env
+            .distributions
+            .call1(
+                "Gamma",
+                (
+                    tensor_to_py_obj(&py_env, &q_concentration),
+                    tensor_to_py_obj(&py_env, &q_rate),
+                ),
+            )
+            .unwrap();
+        let dist_q_rs = Gamma::new(q_concentration, q_rate);
+
+        test_kl_divergence(&py_env, &dist_p_rs, &dist_q_rs, dist_p_py, dist_q_py);
+    }
 }
 
 #[test]
