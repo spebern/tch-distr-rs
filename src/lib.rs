@@ -51,6 +51,8 @@ pub trait Distribution {
 }
 
 pub trait KullackLeiberDivergence<D: Distribution> {
+    /// Calculates the Kullack Leiber Divergence between this distribution and another
+    /// distribution.
     fn kl_divergence(&self, other: &D) -> Tensor;
 }
 
