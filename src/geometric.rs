@@ -1,6 +1,6 @@
 use crate::{
     utils::{logits_to_probs, probs_to_logits, tiny},
-    Distribution,
+    Distribution, KullackLeiberDivergence,
 };
 use tch::{Reduction, Tensor};
 
@@ -86,5 +86,11 @@ impl Distribution for Geometric {
 
     fn batch_shape(&self) -> &[i64] {
         &self.batch_shape
+    }
+}
+
+impl KullackLeiberDivergence<Self> for Geometric {
+    fn kl_divergence(&self, other: &Self) -> Tensor {
+        -self.entropy() - (-other.probs()).log1p() / self.probs() - other.logits()
     }
 }

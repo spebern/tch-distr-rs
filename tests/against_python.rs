@@ -517,6 +517,24 @@ fn geometric() {
         let dist_rs = Geometric::from_logits(logits);
         run_test_cases(&py_env, dist_rs, dist_py, &test_cases);
     }
+
+    let p_q_probs: Vec<(Tensor, Tensor)> = vec![(0.3.into(), 0.7.into()), (0.6.into(), 0.5.into())];
+
+    for (p_probs, q_probs) in p_q_probs {
+        let dist_p_py = py_env
+            .distributions
+            .call1("Geometric", (tensor_to_py_obj(&py_env, &p_probs),))
+            .unwrap();
+        let dist_p_rs = Geometric::from_probs(p_probs);
+
+        let dist_q_py = py_env
+            .distributions
+            .call1("Geometric", (tensor_to_py_obj(&py_env, &q_probs),))
+            .unwrap();
+        let dist_q_rs = Geometric::from_probs(q_probs);
+
+        test_kl_divergence(&py_env, &dist_p_rs, &dist_q_rs, dist_p_py, dist_q_py);
+    }
 }
 
 #[test]
