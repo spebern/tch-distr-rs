@@ -1,4 +1,4 @@
-use crate::Distribution;
+use crate::{Distribution, KullackLeiberDivergence};
 use tch::Tensor;
 
 /// An Exponential distribution.
@@ -54,5 +54,13 @@ impl Distribution for Exponential {
 
     fn batch_shape(&self) -> &[i64] {
         &self.batch_shape
+    }
+}
+
+impl KullackLeiberDivergence<Self> for Exponential {
+    fn kl_divergence(&self, other: &Self) -> Tensor {
+        let rate_ratio = other.rate() / self.rate();
+        let t1 = -rate_ratio.log();
+        t1 + rate_ratio - &1.0.into()
     }
 }

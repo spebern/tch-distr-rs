@@ -410,6 +410,24 @@ fn exponential() {
         let dist_rs = Exponential::new(rate);
         run_test_cases(&py_env, dist_rs, dist_py, &test_cases);
     }
+
+    let p_q_rate: Vec<(Tensor, Tensor)> = vec![(0.3.into(), 0.7.into()), (0.6.into(), 0.5.into())];
+
+    for (p_rate, q_rate) in p_q_rate {
+        let dist_p_py = py_env
+            .distributions
+            .call1("Exponential", (tensor_to_py_obj(&py_env, &p_rate),))
+            .unwrap();
+        let dist_p_rs = Exponential::new(p_rate);
+
+        let dist_q_py = py_env
+            .distributions
+            .call1("Exponential", (tensor_to_py_obj(&py_env, &q_rate),))
+            .unwrap();
+        let dist_q_rs = Exponential::new(q_rate);
+
+        test_kl_divergence(&py_env, &dist_p_rs, &dist_q_rs, dist_p_py, dist_q_py);
+    }
 }
 
 #[test]
