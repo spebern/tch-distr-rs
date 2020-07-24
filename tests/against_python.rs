@@ -247,12 +247,6 @@ fn uniform() {
     let mut test_cases = TestCases::default();
     test_cases.sample = Some(vec![vec![1], vec![1, 2]]);
 
-    let p_q_mean_std: Vec<((Tensor, Tensor), (Tensor, Tensor))> = vec![
-        ((1.0.into(), 2.0.into()), (1.0.into(), 2.0.into())),
-        ((0.0.into(), 3.0.into()), (1.0.into(), 3.0.into())),
-        ((1.0.into(), 2.0.into()), (0.0.into(), 3.0.into())),
-    ];
-
     for (low, high) in args.into_iter() {
         let dist_py = py_env
             .distributions
@@ -267,6 +261,11 @@ fn uniform() {
         let dist_rs = Uniform::new(low, high);
         run_test_cases(&py_env, dist_rs, dist_py, &test_cases);
     }
+
+    let p_q_mean_std: Vec<((Tensor, Tensor), (Tensor, Tensor))> = vec![
+        ((0.0.into(), 3.0.into()), (1.0.into(), 3.0.into())),
+        ((1.0.into(), 2.0.into()), (0.0.into(), 3.0.into())),
+    ];
 
     for ((p_low, p_high), (q_low, q_high)) in p_q_mean_std {
         let dist_p_py = py_env
