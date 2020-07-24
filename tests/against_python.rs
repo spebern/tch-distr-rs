@@ -368,6 +368,24 @@ fn poisson() {
         let dist_rs = Poisson::new(rate);
         run_test_cases(&py_env, dist_rs, dist_py, &test_cases);
     }
+
+    let p_q_rate: Vec<(Tensor, Tensor)> = vec![(1.0.into(), 2.0.into()), (3.0.into(), 4.0.into())];
+
+    for (p_rate, q_rate) in p_q_rate {
+        let dist_p_py = py_env
+            .distributions
+            .call1("Poisson", (tensor_to_py_obj(&py_env, &p_rate),))
+            .unwrap();
+        let dist_p_rs = Poisson::new(p_rate);
+
+        let dist_q_py = py_env
+            .distributions
+            .call1("Poisson", (tensor_to_py_obj(&py_env, &q_rate),))
+            .unwrap();
+        let dist_q_rs = Poisson::new(q_rate);
+
+        test_kl_divergence(&py_env, &dist_p_rs, &dist_q_rs, dist_p_py, dist_q_py);
+    }
 }
 
 #[test]

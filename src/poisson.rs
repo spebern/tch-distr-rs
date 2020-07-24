@@ -1,4 +1,4 @@
-use crate::Distribution;
+use crate::{Distribution, KullackLeiberDivergence};
 use tch::Tensor;
 
 /// A Poisson distribution.
@@ -42,5 +42,11 @@ impl Distribution for Poisson {
 
     fn batch_shape(&self) -> &[i64] {
         &self.batch_shape
+    }
+}
+
+impl KullackLeiberDivergence<Self> for Poisson {
+    fn kl_divergence(&self, other: &Self) -> Tensor {
+        self.rate() * (self.rate().log() - other.rate().log()) - (self.rate() - other.rate())
     }
 }
