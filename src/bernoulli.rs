@@ -1,6 +1,6 @@
 use crate::{
-    utils::{logits_to_probs, probs_to_logits},
-    Distribution,
+    utils::{infinity, logits_to_probs, probs_to_logits},
+    Distribution, KullackLeiberDivergence,
 };
 use tch::{Kind, Reduction, Tensor};
 
@@ -36,6 +36,11 @@ impl Bernoulli {
             logits,
         }
     }
+
+    /// Returns the probabilities of the distribution.
+    pub fn probs(&self) -> &Tensor {
+        &self.probs
+    }
 }
 
 impl Distribution for Bernoulli {
@@ -58,5 +63,20 @@ impl Distribution for Bernoulli {
         tch::no_grad(|| {
             Tensor::empty(shape, (Kind::Bool, self.probs.device())).bernoulli_(&self.probs)
         })
+    }
+}
+
+impl KullackLeiberDivergence<Self> for Bernoulli {
+    fn kl_divergence(&self, other: &Self) -> Tensor {
+        let t1: Tensor = self.probs() * (self.probs() / other.probs()).log();
+        let t1 = t1.where1(&other.probs().f_ne(0.0).unwrap(), &infinity(t1.kind()));
+        let t1 = t1.where1(&self.probs().f_ne(0.0).unwrap(), &0.0.into());
+
+        let t2: Tensor = (&1.0.into() - self.probs())
+            * ((&1.0.into() - self.probs()) / (&1.0.into() - other.probs())).log();
+        let t2 = t2.where1(&other.probs().f_ne(1.0).unwrap(), &infinity(t1.kind()));
+        let t2 = t2.where1(&self.probs().f_ne(1.0).unwrap(), &0.0.into());
+
+        t1 + t2
     }
 }
