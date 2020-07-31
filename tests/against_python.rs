@@ -82,8 +82,8 @@ fn assert_tensor_eq<'py>(py: Python<'py>, t: &Tensor, py_t: &PyAny) {
     let pyarray: &PyArrayDyn<f64> = py_t.call_method0("numpy").unwrap().extract().unwrap();
     let array: ArrayD<f64> = t.try_into().unwrap();
     assert_eq!(
-        array.to_pyarray(py).as_slice().unwrap(),
-        pyarray.as_slice().unwrap()
+        array.to_pyarray(py).as_cell_slice().unwrap(),
+        pyarray.as_cell_slice().unwrap()
     );
 }
 

@@ -66,7 +66,7 @@ impl Distribution for Normal {
     }
 
     fn icdf(&self, val: &Tensor) -> Tensor {
-        &self.mean + &self.stddev * (2.0 * val - 1.0).erfinv() * 2.0f64.sqrt()
+        &self.mean + &self.stddev * (2.0f64 * val - 1.0f64).erfinv() * 2.0f64.sqrt()
     }
 
     fn batch_shape(&self) -> &[i64] {

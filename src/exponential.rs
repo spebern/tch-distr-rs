@@ -41,15 +41,15 @@ impl Distribution for Exponential {
     }
 
     fn cdf(&self, val: &Tensor) -> Tensor {
-        1 - (-&self.rate * val).exp()
+        1.0f64 - (-&self.rate * val).exp()
     }
 
     fn entropy(&self) -> Tensor {
-        1.0 - self.rate.log()
+        1.0f64 - self.rate.log()
     }
 
     fn icdf(&self, val: &Tensor) -> Tensor {
-        -(1 - val).log() / &self.rate
+        -(1.0f64 - val).log() / &self.rate
     }
 
     fn batch_shape(&self) -> &[i64] {
