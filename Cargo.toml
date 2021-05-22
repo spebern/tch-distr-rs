@@ -12,7 +12,7 @@ license = "MIT/Apache-2.0"
 readme = "README.md"
 
 [dependencies]
-tch = { git = "https://github.com/LaurentMazare/tch-rs" }
+tch = "0.4.1"
 
 [dev-dependencies]
 numpy = "0.11.0"
