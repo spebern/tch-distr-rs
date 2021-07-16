@@ -12,10 +12,10 @@ license = "MIT/Apache-2.0"
 readme = "README.md"
 
 [dependencies]
-tch = "~0.4.1"
+tch = "0.5.0"
 
 [dev-dependencies]
-numpy = "0.11.0"
-ndarray = "0.13.1"
-pyo3 = "0.11.1"
-serial_test = "0.4"
+numpy = "0.14.1"
+ndarray = "0.15.3"
+pyo3 = "0.14.1"
+serial_test = "0.5.1"
