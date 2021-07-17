@@ -2,7 +2,7 @@ name: Rust
 
 on:
   push:
-    branches: [ master ]
+    branches: [ master, workflow ]
   pull_request:
     branches: [ master ]
 
@@ -12,19 +12,13 @@ env:
 jobs:
   build:
 
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
 
     steps:
     - uses: actions/checkout@v2
-    - name: Set up Python 3.6
-      uses: actions/setup-python@v1
-      with:
-        python-version: 3.6
-    - name: Install pyo3 dependencies
-      run: sudo apt install python3-dev python-dev
     - name: Install torch
       run: |
-        python - pip install --upgrade pip
+        python -m pip install --upgrade pip
         pip install torch torchvision
     - name: Install latest nightly
       uses: actions-rs/toolchain@v1
