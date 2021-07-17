@@ -1,7 +1,7 @@
 [package]
 name = "tch_distr"
-version = "0.1.0"
-authors = ["bold <bold@cryptoguru.com>"]
+version = "0.1.1"
+authors = ["bold <bold@cryptoguru.com>", "dpuyosa"]
 edition = "2018"
 
 description = "Rust equivalent torch.distributions."

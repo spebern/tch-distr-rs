@@ -49,7 +49,7 @@ impl Distribution for Normal {
 
     fn sample(&self, shape: &[i64]) -> Tensor {
         let shape = self.extended_shape(shape);
-        Tensor::normal_out2(
+        Tensor::normal_tensor_tensor_out(
             &Tensor::empty(&shape, (self.mean.kind(), self.mean.device())),
             &self.mean.expand(&shape, false),
             &self.stddev.expand(&shape, false),

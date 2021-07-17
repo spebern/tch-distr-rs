@@ -55,8 +55,8 @@ impl Distribution for Uniform {
     }
 
     fn log_prob(&self, val: &Tensor) -> Tensor {
-        let lb = self.low.le1(val).type_as(&self.low);
-        let ub = self.high.gt1(val).type_as(&self.low);
+        let lb = self.low.le_tensor(val).type_as(&self.low);
+        let ub = self.high.gt_tensor(val).type_as(&self.low);
         (&lb * &ub).log() - (&self.high - &self.low).log()
     }
 
@@ -74,11 +74,11 @@ impl Distribution for Uniform {
 impl KullackLeiberDivergence<Self> for Uniform {
     fn kl_divergence(&self, other: &Self) -> Tensor {
         let result = ((other.high() - other.low()) / (self.high() - self.low())).log();
-        result.where1(
+        result.where_self(
             &other
                 .low()
-                .le1(self.low())
-                .logical_and(&other.high().ge1(self.high())),
+                .le_tensor(self.low())
+                .logical_and(&other.high().ge_tensor(self.high())),
             &infinity(result.kind()),
         )
     }
