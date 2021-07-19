@@ -17,8 +17,7 @@ Currently, the `Distribution` trait is not stable and it will most likely change
 
 # Notes on the tests
 
-The tests require nightly, because of the python wrapper `pyo3` and also and the
-python `torch` library.
+The tests require nightly, because of the python wrapper `pyo3` and also the python `torch` library.
 
 On arch linux the tests segfaulted for me when I used the `aur/libtorch` together with tch, which
 seems to have been a conflict between the python `torch` and `libtorch`.

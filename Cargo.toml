@@ -1,7 +1,7 @@
 [package]
 name = "tch_distr"
-version = "0.1.0"
-authors = ["bold <bold@cryptoguru.com>"]
+version = "0.1.1"
+authors = ["bold <bold@cryptoguru.com>", "dpuyosa"]
 edition = "2018"
 
 description = "Rust equivalent torch.distributions."
@@ -12,10 +12,10 @@ license = "MIT/Apache-2.0"
 readme = "README.md"
 
 [dependencies]
-tch = { git = "https://github.com/LaurentMazare/tch-rs" }
+tch = "0.5.0"
 
 [dev-dependencies]
-numpy = "0.11.0"
-ndarray = "0.13.1"
-pyo3 = "0.11.1"
-serial_test = "0.4"
+numpy = "0.14.1"
+ndarray = "0.15.3"
+pyo3 = { version = "0.14.1", features = ["macros", "auto-initialize"] }
+serial_test = "0.5.1"

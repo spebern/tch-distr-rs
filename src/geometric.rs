@@ -61,7 +61,7 @@ impl Distribution for Geometric {
             .f_eq(1)
             .unwrap()
             .logical_and(&val.f_eq(0).unwrap());
-        let probs = self.probs.where1(&cond.logical_not(), &0.0.into());
+        let probs = self.probs.where_self(&cond.logical_not(), &0.0.into());
         val * (-probs).log1p() + self.probs.log()
     }
 
