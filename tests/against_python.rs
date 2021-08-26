@@ -74,7 +74,9 @@ fn tensor_to_py_obj<'py>(py_env: &'py PyEnv, t: &Tensor) -> &'py PyAny {
     let array: ndarray::ArrayD<f64> = t.try_into().unwrap();
     py_env
         .torch
-        .call1("from_numpy", (array.to_pyarray(py_env.py),))
+        .getattr("from_numpy")
+        .expect("call from_numpy failed")
+        .call1((array.to_pyarray(py_env.py),))
         .unwrap()
 }
 
@@ -188,13 +190,12 @@ fn normal() {
     for (mean, std) in args.into_iter() {
         let dist_py = py_env
             .distributions
-            .call1(
-                "Normal",
-                (
-                    tensor_to_py_obj(&py_env, &mean),
-                    tensor_to_py_obj(&py_env, &std),
-                ),
-            )
+            .getattr("Normal")
+            .expect("call Normal failed")
+            .call1((
+                tensor_to_py_obj(&py_env, &mean),
+                tensor_to_py_obj(&py_env, &std),
+            ))
             .unwrap();
         let dist_rs = Normal::new(mean, std);
         run_test_cases(&py_env, dist_rs, dist_py, &test_cases);
@@ -206,25 +207,23 @@ fn normal() {
     for ((p_mean, p_std), (q_mean, q_std)) in p_q_mean_std {
         let dist_p_py = py_env
             .distributions
-            .call1(
-                "Normal",
-                (
-                    tensor_to_py_obj(&py_env, &p_mean),
-                    tensor_to_py_obj(&py_env, &p_std),
-                ),
-            )
+            .getattr("Normal")
+            .expect("call Normal failed")
+            .call1((
+                tensor_to_py_obj(&py_env, &p_mean),
+                tensor_to_py_obj(&py_env, &p_std),
+            ))
             .unwrap();
         let dist_p_rs = Normal::new(p_mean, p_std);
 
         let dist_q_py = py_env
             .distributions
-            .call1(
-                "Normal",
-                (
-                    tensor_to_py_obj(&py_env, &q_mean),
-                    tensor_to_py_obj(&py_env, &q_std),
-                ),
-            )
+            .getattr("Normal")
+            .expect("call Normal failed")
+            .call1((
+                tensor_to_py_obj(&py_env, &q_mean),
+                tensor_to_py_obj(&py_env, &q_std),
+            ))
             .unwrap();
         let dist_q_rs = Normal::new(q_mean, q_std);
 
@@ -250,13 +249,12 @@ fn uniform() {
     for (low, high) in args.into_iter() {
         let dist_py = py_env
             .distributions
-            .call1(
-                "Uniform",
-                (
-                    tensor_to_py_obj(&py_env, &low),
-                    tensor_to_py_obj(&py_env, &high),
-                ),
-            )
+            .getattr("Uniform")
+            .expect("call Uniform failed")
+            .call1((
+                tensor_to_py_obj(&py_env, &low),
+                tensor_to_py_obj(&py_env, &high),
+            ))
             .unwrap();
         let dist_rs = Uniform::new(low, high);
         run_test_cases(&py_env, dist_rs, dist_py, &test_cases);
@@ -270,25 +268,23 @@ fn uniform() {
     for ((p_low, p_high), (q_low, q_high)) in p_q_mean_std {
         let dist_p_py = py_env
             .distributions
-            .call1(
-                "Uniform",
-                (
-                    tensor_to_py_obj(&py_env, &p_low),
-                    tensor_to_py_obj(&py_env, &p_high),
-                ),
-            )
+            .getattr("Uniform")
+            .expect("call Uniform failed")
+            .call1((
+                tensor_to_py_obj(&py_env, &p_low),
+                tensor_to_py_obj(&py_env, &p_high),
+            ))
             .unwrap();
         let dist_p_rs = Uniform::new(p_low, p_high);
 
         let dist_q_py = py_env
             .distributions
-            .call1(
-                "Uniform",
-                (
-                    tensor_to_py_obj(&py_env, &q_low),
-                    tensor_to_py_obj(&py_env, &q_high),
-                ),
-            )
+            .getattr("Uniform")
+            .expect("call Uniform failed")
+            .call1((
+                tensor_to_py_obj(&py_env, &q_low),
+                tensor_to_py_obj(&py_env, &q_high),
+            ))
             .unwrap();
         let dist_q_rs = Uniform::new(q_low, q_high);
 
@@ -312,7 +308,9 @@ fn bernoulli() {
     for probs in probs.into_iter() {
         let dist_py = py_env
             .distributions
-            .call1("Bernoulli", (tensor_to_py_obj(&py_env, &probs),))
+            .getattr("Bernoulli")
+            .expect("call Bernoulli failed")
+            .call1((tensor_to_py_obj(&py_env, &probs),))
             .unwrap();
         let dist_rs = Bernoulli::from_probs(probs);
         run_test_cases(&py_env, dist_rs, dist_py, &test_cases);
@@ -328,13 +326,12 @@ fn bernoulli() {
     for logits in logits.into_iter() {
         let dist_py = py_env
             .distributions
-            .call1(
-                "Bernoulli",
-                (
-                    pyo3::Python::None(py_env.py),
-                    tensor_to_py_obj(&py_env, &logits).to_object(py_env.py),
-                ),
-            )
+            .getattr("Bernoulli")
+            .expect("call Bernoulli failed")
+            .call1((
+                pyo3::Python::None(py_env.py),
+                tensor_to_py_obj(&py_env, &logits).to_object(py_env.py),
+            ))
             .unwrap();
         let dist_rs = Bernoulli::from_logits(logits);
         run_test_cases(&py_env, dist_rs, dist_py, &test_cases);
@@ -346,13 +343,17 @@ fn bernoulli() {
     for (p_probs, q_probs) in p_q_probs {
         let dist_p_py = py_env
             .distributions
-            .call1("Bernoulli", (tensor_to_py_obj(&py_env, &p_probs),))
+            .getattr("Bernoulli")
+            .expect("call Bernoulli failed")
+            .call1((tensor_to_py_obj(&py_env, &p_probs),))
             .unwrap();
         let dist_p_rs = Bernoulli::from_probs(p_probs);
 
         let dist_q_py = py_env
             .distributions
-            .call1("Bernoulli", (tensor_to_py_obj(&py_env, &q_probs),))
+            .getattr("Bernoulli")
+            .expect("call Bernoulli failed")
+            .call1((tensor_to_py_obj(&py_env, &q_probs),))
             .unwrap();
         let dist_q_rs = Bernoulli::from_probs(q_probs);
 
@@ -381,7 +382,10 @@ fn poisson() {
     for rate in rates.into_iter() {
         let dist_py = py_env
             .distributions
-            .call1("Poisson", (tensor_to_py_obj(&py_env, &rate),))
+            .getattr("Poisson")
+            .expect("call Poisson failed")
+            .call1((tensor_to_py_obj(&py_env, &rate),))
+            // .call1("Poisson", (tensor_to_py_obj(&py_env, &rate),))
             .unwrap();
         let dist_rs = Poisson::new(rate);
         run_test_cases(&py_env, dist_rs, dist_py, &test_cases);
@@ -392,13 +396,17 @@ fn poisson() {
     for (p_rate, q_rate) in p_q_rate {
         let dist_p_py = py_env
             .distributions
-            .call1("Poisson", (tensor_to_py_obj(&py_env, &p_rate),))
+            .getattr("Poisson")
+            .expect("call Poisson failed")
+            .call1((tensor_to_py_obj(&py_env, &p_rate),))
             .unwrap();
         let dist_p_rs = Poisson::new(p_rate);
 
         let dist_q_py = py_env
             .distributions
-            .call1("Poisson", (tensor_to_py_obj(&py_env, &q_rate),))
+            .getattr("Poisson")
+            .expect("call Poisson failed")
+            .call1((tensor_to_py_obj(&py_env, &q_rate),))
             .unwrap();
         let dist_q_rs = Poisson::new(q_rate);
 
@@ -424,7 +432,9 @@ fn exponential() {
     for rate in rates.into_iter() {
         let dist_py = py_env
             .distributions
-            .call1("Exponential", (tensor_to_py_obj(&py_env, &rate),))
+            .getattr("Exponential")
+            .expect("call Exponential failed")
+            .call1((tensor_to_py_obj(&py_env, &rate),))
             .unwrap();
         let dist_rs = Exponential::new(rate);
         run_test_cases(&py_env, dist_rs, dist_py, &test_cases);
@@ -435,13 +445,17 @@ fn exponential() {
     for (p_rate, q_rate) in p_q_rate {
         let dist_p_py = py_env
             .distributions
-            .call1("Exponential", (tensor_to_py_obj(&py_env, &p_rate),))
+            .getattr("Exponential")
+            .expect("call Exponential failed")
+            .call1((tensor_to_py_obj(&py_env, &p_rate),))
             .unwrap();
         let dist_p_rs = Exponential::new(p_rate);
 
         let dist_q_py = py_env
             .distributions
-            .call1("Exponential", (tensor_to_py_obj(&py_env, &q_rate),))
+            .getattr("Exponential")
+            .expect("call Exponential failed")
+            .call1((tensor_to_py_obj(&py_env, &q_rate),))
             .unwrap();
         let dist_q_rs = Exponential::new(q_rate);
 
@@ -467,13 +481,12 @@ fn cauchy() {
     for (median, scale) in args.into_iter() {
         let dist_py = py_env
             .distributions
-            .call1(
-                "Cauchy",
-                (
-                    tensor_to_py_obj(&py_env, &median),
-                    tensor_to_py_obj(&py_env, &scale),
-                ),
-            )
+            .getattr("Cauchy")
+            .expect("call Cauchy failed")
+            .call1((
+                tensor_to_py_obj(&py_env, &median),
+                tensor_to_py_obj(&py_env, &scale),
+            ))
             .unwrap();
         let dist_rs = Cauchy::new(median, scale);
         run_test_cases(&py_env, dist_rs, dist_py, &test_cases);
@@ -499,13 +512,12 @@ fn gamma() {
     for (concentration, rate) in args.into_iter() {
         let dist_py = py_env
             .distributions
-            .call1(
-                "Gamma",
-                (
-                    tensor_to_py_obj(&py_env, &concentration),
-                    tensor_to_py_obj(&py_env, &rate),
-                ),
-            )
+            .getattr("Gamma")
+            .expect("call Gamma failed")
+            .call1((
+                tensor_to_py_obj(&py_env, &concentration),
+                tensor_to_py_obj(&py_env, &rate),
+            ))
             .unwrap();
         let dist_rs = Gamma::new(concentration, rate);
         run_test_cases(&py_env, dist_rs, dist_py, &test_cases);
@@ -517,25 +529,23 @@ fn gamma() {
     for ((p_concentration, p_rate), (q_concentration, q_rate)) in p_q_concentration_rate {
         let dist_p_py = py_env
             .distributions
-            .call1(
-                "Gamma",
-                (
-                    tensor_to_py_obj(&py_env, &p_concentration),
-                    tensor_to_py_obj(&py_env, &p_rate),
-                ),
-            )
+            .getattr("Gamma")
+            .expect("call Gamma failed")
+            .call1((
+                tensor_to_py_obj(&py_env, &p_concentration),
+                tensor_to_py_obj(&py_env, &p_rate),
+            ))
             .unwrap();
         let dist_p_rs = Gamma::new(p_concentration, p_rate);
 
         let dist_q_py = py_env
             .distributions
-            .call1(
-                "Gamma",
-                (
-                    tensor_to_py_obj(&py_env, &q_concentration),
-                    tensor_to_py_obj(&py_env, &q_rate),
-                ),
-            )
+            .getattr("Gamma")
+            .expect("call Gamma failed")
+            .call1((
+                tensor_to_py_obj(&py_env, &q_concentration),
+                tensor_to_py_obj(&py_env, &q_rate),
+            ))
             .unwrap();
         let dist_q_rs = Gamma::new(q_concentration, q_rate);
 
@@ -559,7 +569,9 @@ fn geometric() {
     for probs in probs.into_iter() {
         let dist_py = py_env
             .distributions
-            .call1("Geometric", (tensor_to_py_obj(&py_env, &probs),))
+            .getattr("Geometric")
+            .expect("call Geometric failed")
+            .call1((tensor_to_py_obj(&py_env, &probs),))
             .unwrap();
         let dist_rs = Geometric::from_probs(probs);
         run_test_cases(&py_env, dist_rs, dist_py, &test_cases);
@@ -574,13 +586,12 @@ fn geometric() {
     for logits in logits.into_iter() {
         let dist_py = py_env
             .distributions
-            .call1(
-                "Geometric",
-                (
-                    pyo3::Python::None(py_env.py),
-                    tensor_to_py_obj(&py_env, &logits).to_object(py_env.py),
-                ),
-            )
+            .getattr("Geometric")
+            .expect("call Geometric failed")
+            .call1((
+                pyo3::Python::None(py_env.py),
+                tensor_to_py_obj(&py_env, &logits).to_object(py_env.py),
+            ))
             .unwrap();
         let dist_rs = Geometric::from_logits(logits);
         run_test_cases(&py_env, dist_rs, dist_py, &test_cases);
@@ -591,13 +602,17 @@ fn geometric() {
     for (p_probs, q_probs) in p_q_probs {
         let dist_p_py = py_env
             .distributions
-            .call1("Geometric", (tensor_to_py_obj(&py_env, &p_probs),))
+            .getattr("Geometric")
+            .expect("call Geometric failed")
+            .call1((tensor_to_py_obj(&py_env, &p_probs),))
             .unwrap();
         let dist_p_rs = Geometric::from_probs(p_probs);
 
         let dist_q_py = py_env
             .distributions
-            .call1("Geometric", (tensor_to_py_obj(&py_env, &q_probs),))
+            .getattr("Geometric")
+            .expect("call Geometric failed")
+            .call1((tensor_to_py_obj(&py_env, &q_probs),))
             .unwrap();
         let dist_q_rs = Geometric::from_probs(q_probs);
 
@@ -633,13 +648,12 @@ fn multivariate_normal() {
     for (mean, cov) in mean_and_covs.into_iter() {
         let dist_py = py_env
             .distributions
-            .call1(
-                "MultivariateNormal",
-                (
-                    tensor_to_py_obj(&py_env, &mean),
-                    tensor_to_py_obj(&py_env, &cov),
-                ),
-            )
+            .getattr("MultivariateNormal")
+            .expect("call MultivariateNormal failed")
+            .call1((
+                tensor_to_py_obj(&py_env, &mean),
+                tensor_to_py_obj(&py_env, &cov),
+            ))
             .unwrap();
         let dist_rs = MultivariateNormal::from_cov(mean, cov);
         run_test_cases(&py_env, dist_rs, dist_py, &test_cases);
@@ -658,14 +672,13 @@ fn multivariate_normal() {
     for (mean, precision) in mean_and_precisions.into_iter() {
         let dist_py = py_env
             .distributions
-            .call1(
-                "MultivariateNormal",
-                (
-                    tensor_to_py_obj(&py_env, &mean),
-                    pyo3::Python::None(py_env.py),
-                    tensor_to_py_obj(&py_env, &precision),
-                ),
-            )
+            .getattr("MultivariateNormal")
+            .expect("call MultivariateNormal failed")
+            .call1((
+                tensor_to_py_obj(&py_env, &mean),
+                pyo3::Python::None(py_env.py),
+                tensor_to_py_obj(&py_env, &precision),
+            ))
             .unwrap();
         let dist_rs = MultivariateNormal::from_precision(mean, precision);
         run_test_cases(&py_env, dist_rs, dist_py, &test_cases);
@@ -684,15 +697,14 @@ fn multivariate_normal() {
     for (mean, scale_tril) in mean_and_scale_trils.into_iter() {
         let dist_py = py_env
             .distributions
-            .call1(
-                "MultivariateNormal",
-                (
-                    tensor_to_py_obj(&py_env, &mean),
-                    pyo3::Python::None(py_env.py),
-                    pyo3::Python::None(py_env.py),
-                    tensor_to_py_obj(&py_env, &scale_tril),
-                ),
-            )
+            .getattr("MultivariateNormal")
+            .expect("call MultivariateNormal failed")
+            .call1((
+                tensor_to_py_obj(&py_env, &mean),
+                pyo3::Python::None(py_env.py),
+                pyo3::Python::None(py_env.py),
+                tensor_to_py_obj(&py_env, &scale_tril),
+            ))
             .unwrap();
         let dist_rs = MultivariateNormal::from_scale_tril(mean, scale_tril);
         run_test_cases(&py_env, dist_rs, dist_py, &test_cases);
