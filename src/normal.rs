@@ -1,4 +1,4 @@
-use crate::{Distribution, KullackLeiberDivergence};
+use crate::{utils::standard_normal, Distribution, KullackLeiberDivergence};
 use std::f64::consts::PI;
 use tch::Tensor;
 
@@ -39,6 +39,13 @@ impl Normal {
     /// Returns the standard deviation of the distribution.
     pub fn stddev(&self) -> &Tensor {
         &self.stddev
+    }
+
+    /// Returns sample(s) by using reparameterization trick
+    pub fn rsample(&self, shape: &[i64]) -> Tensor {
+        let shape = self.extended_shape(shape);
+        let eps = standard_normal(&shape, self.mean.kind(), self.mean.device());
+        &self.mean + eps * &self.stddev
     }
 }
 

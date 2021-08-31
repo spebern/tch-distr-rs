@@ -135,6 +135,24 @@ fn test_sample<D: Distribution>(py_env: &PyEnv, dist_rs: &D, dist_py: &PyAny, ar
     }
 }
 
+fn test_rsample_of_normal_distribution(
+    py_env: &PyEnv,
+    dist_rs: &Normal,
+    dist_py: &PyAny,
+    args: &[Vec<i64>],
+) {
+    for args in args.into_iter() {
+        // We need to ensure that we always start with the same seed.
+        tch::manual_seed(SEED);
+        let samples_py = dist_py
+            .call_method1("rsample", (args.to_object(py_env.py),))
+            .unwrap();
+        tch::manual_seed(SEED);
+        let samples_rs = dist_rs.rsample(args);
+        assert_tensor_eq(py_env.py, &samples_rs, samples_py);
+    }
+}
+
 fn test_kl_divergence<P, Q>(
     py_env: &PyEnv,
     dist_p_rs: &P,
@@ -198,6 +216,14 @@ fn normal() {
             ))
             .unwrap();
         let dist_rs = Normal::new(mean, std);
+
+        // The test of rsampling is not in function `run_test_cases`,
+        // because `rsample` is not a method of trait `Distribution`
+        if let Some(sample) = &test_cases.sample {
+            test_rsample_of_normal_distribution(&py_env, &dist_rs, dist_py, sample);
+        }
+        
+        //genral test
         run_test_cases(&py_env, dist_rs, dist_py, &test_cases);
     }
 

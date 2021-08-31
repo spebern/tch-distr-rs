@@ -49,3 +49,7 @@ pub fn infinity(kind: Kind) -> Tensor {
         k => panic!("{:?} cannot represent infinity", k),
     }
 }
+
+pub fn standard_normal(shape: &[i64], dtype: tch::Kind, device: tch::Device) -> Tensor {
+    Tensor::empty(shape, (dtype, device)).normal_(0., 1.)
+}
