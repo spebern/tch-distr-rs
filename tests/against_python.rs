@@ -153,6 +153,24 @@ fn test_rsample_of_normal_distribution(
     }
 }
 
+fn test_rsample_of_multi_var_normal_distribution(
+    py_env: &PyEnv,
+    dist_rs: &MultivariateNormal,
+    dist_py: &PyAny,
+    args: &[Vec<i64>],
+) {
+    for args in args.into_iter() {
+        // We need to ensure that we always start with the same seed.
+        tch::manual_seed(SEED);
+        let samples_py = dist_py
+            .call_method1("rsample", (args.to_object(py_env.py),))
+            .unwrap();
+        tch::manual_seed(SEED);
+        let samples_rs = dist_rs.rsample(args);
+        assert_tensor_eq(py_env.py, &samples_rs, samples_py);
+    }
+}
+
 fn test_kl_divergence<P, Q>(
     py_env: &PyEnv,
     dist_p_rs: &P,
@@ -222,7 +240,7 @@ fn normal() {
         if let Some(sample) = &test_cases.sample {
             test_rsample_of_normal_distribution(&py_env, &dist_rs, dist_py, sample);
         }
-        
+
         //genral test
         run_test_cases(&py_env, dist_rs, dist_py, &test_cases);
     }
@@ -265,11 +283,21 @@ fn uniform() {
 
     let args: Vec<(Tensor, Tensor)> = vec![
         (1.0.into(), 2.0.into()),
-        (2.0.into(), 4.0.into()),
+        ((-1.0).into(), 4.0.into()),
         (Tensor::of_slice(&[1.0, 1.0]), Tensor::of_slice(&[2.0, 2.0])),
     ];
 
     let mut test_cases = TestCases::default();
+
+    // NOTE: because all samples of `log_prob` would be testes for each of `args`,
+    // so within distribution uniform, the VALID parameter parsed to `log_prob` should be
+    // in the range of intersection of all `args`
+    test_cases.log_prob = Some(vec![
+        1.2.into(),
+        2.0.into(),
+        Tensor::of_slice(&[1.2, 1.4]),
+        Tensor::of_slice(&[2.0, 1.5]),
+    ]);
     test_cases.sample = Some(vec![vec![1], vec![1, 2]]);
 
     for (low, high) in args.into_iter() {
@@ -329,6 +357,13 @@ fn bernoulli() {
     let mut test_cases = TestCases::default();
     test_cases.icdf = None;
     test_cases.cdf = None;
+    // NOTE: for distribution bernoulli, only 1 or 0 is valid for method `log_prob`
+    test_cases.log_prob = Some(vec![
+        0.0.into(),
+        1.0.into(),
+        Tensor::of_slice(&[1.0, 0.0]),
+        Tensor::of_slice(&[0.0, 1.0]),
+    ]);
     test_cases.sample = Some(vec![vec![1], vec![1, 2]]);
 
     for probs in probs.into_iter() {
@@ -347,6 +382,13 @@ fn bernoulli() {
     let mut test_cases = TestCases::default();
     test_cases.icdf = None;
     test_cases.cdf = None;
+    // NOTE: for distribution bernoulli, only 1 or 0 is valid for method `log_prob`
+    test_cases.log_prob = Some(vec![
+        0.0.into(),
+        1.0.into(),
+        Tensor::of_slice(&[1.0, 0.0]),
+        Tensor::of_slice(&[0.0, 1.0]),
+    ]);
     test_cases.sample = Some(vec![vec![1], vec![1, 2]]);
 
     for logits in logits.into_iter() {
@@ -652,14 +694,29 @@ fn multivariate_normal() {
     let gil = Python::acquire_gil();
     let py_env = PyEnv::new(&gil);
 
+    // 1.init/test with mean and covariance
+    // NOTE: as pytorch taks float64 as default number type,
+    // Here we use tch::Kind::Double to make consistent
     let mean_and_covs: Vec<(Tensor, Tensor)> = vec![
         (
-            Tensor::of_slice(&[1.0]),
-            Tensor::try_from(array![[1.0, 0.0], [0.0, 1.0]]).unwrap(),
+            Tensor::ones(&[1], (tch::Kind::Double, tch::Device::Cpu)),
+            Tensor::eye(1, (tch::Kind::Double, tch::Device::Cpu)),
         ),
         (
-            Tensor::of_slice(&[1.0, 2.0, 3.0]),
-            Tensor::try_from(array![[3.0, 0.0, 0.0], [0.0, 7.0, 0.0], [0.0, 0.0, 10.0]]).unwrap(),
+            Tensor::of_slice(&[1f64, 2.0, 3.0]),
+            Tensor::try_from(array![[3f64, 0.0, 0.0], [0.0, 7.0, 0.0], [0.0, 0.0, 10.0]]).unwrap(),
+        ),
+        (
+            Tensor::ones(&[1, 4], (tch::Kind::Double, tch::Device::Cpu)),
+            Tensor::eye(4, (tch::Kind::Double, tch::Device::Cpu)),
+        ),
+        (
+            Tensor::ones(&[4, 2], (tch::Kind::Double, tch::Device::Cpu)),
+            Tensor::eye(2, (tch::Kind::Double, tch::Device::Cpu)),
+        ),
+        (
+            Tensor::ones(&[3], (tch::Kind::Double, tch::Device::Cpu)),
+            Tensor::eye(3, (tch::Kind::Double, tch::Device::Cpu)),
         ),
     ];
 
@@ -667,8 +724,7 @@ fn multivariate_normal() {
     test_cases.icdf = None;
     test_cases.cdf = None;
     test_cases.entropy = false;
-    //test_cases.sample = Some(vec![vec![1], vec![1, 2]]);
-    test_cases.sample = Some(vec![vec![1]]);
+    test_cases.sample = Some(vec![vec![1], vec![1, 2]]);
     test_cases.log_prob = None;
 
     for (mean, cov) in mean_and_covs.into_iter() {
@@ -682,19 +738,33 @@ fn multivariate_normal() {
             ))
             .unwrap();
         let dist_rs = MultivariateNormal::from_cov(mean, cov);
-        run_test_cases(&py_env, dist_rs, dist_py, &test_cases);
+
+        // The test of rsampling is not in function `run_test_cases`,
+        // because `rsample` is not a method of trait `Distribution`
+        if let Some(sample) = &test_cases.sample {
+            test_rsample_of_multi_var_normal_distribution(&py_env, &dist_rs, dist_py, sample);
+        }
+
+        // run_test_cases(&py_env, dist_rs, dist_py, &test_cases);
     }
 
-    let mean_and_precisions: Vec<(Tensor, Tensor)> = vec![(
-        Tensor::of_slice(&[1.0]),
-        Tensor::try_from(array![[1.0, 0.0], [0.0, 1.0]]).unwrap(),
-    )];
-
+    // 2.init/test with mean and precisions
+    // NOTE: as pytorch taks float64 as default number type,
+    // Here we use tch::Kind::Double to make consistent
+    let mean_and_precisions: Vec<(Tensor, Tensor)> = vec![
+        (
+            Tensor::ones(&[1, 1], (tch::Kind::Double, tch::Device::Cpu)),
+            Tensor::of_slice(&[0.6f64]).reshape(&[1, 1]), //precision has to be float32, not int, not double
+        ),
+        (
+            Tensor::ones(&[1, 2], (tch::Kind::Double, tch::Device::Cpu)),
+            Tensor::of_slice(&[0.6f64, 0.4, 0.5, 0.5]).reshape(&[2, 2]),
+        ),
+    ];
     let mut test_cases = TestCases::default();
     test_cases.icdf = None;
     test_cases.cdf = None;
     test_cases.sample = Some(vec![vec![1], vec![1, 2]]);
-
     for (mean, precision) in mean_and_precisions.into_iter() {
         let dist_py = py_env
             .distributions
@@ -707,13 +777,39 @@ fn multivariate_normal() {
             ))
             .unwrap();
         let dist_rs = MultivariateNormal::from_precision(mean, precision);
-        run_test_cases(&py_env, dist_rs, dist_py, &test_cases);
+        // The test of rsampling is not in function `run_test_cases`,
+        // because `rsample` is not a method of trait `Distribution`
+        if let Some(sample) = &test_cases.sample {
+            test_rsample_of_multi_var_normal_distribution(&py_env, &dist_rs, dist_py, sample);
+        }
+        // run_test_cases(&py_env, dist_rs, dist_py, &test_cases);
     }
 
-    let mean_and_scale_trils: Vec<(Tensor, Tensor)> = vec![(
-        Tensor::of_slice(&[1.0]),
-        Tensor::try_from(array![[1.0, 0.0], [0.0, 1.0]]).unwrap(),
-    )];
+    // 3.init/test with mean and scale_trils
+    // NOTE: as pytorch taks float64 as default number type,
+    // Here we use tch::Kind::Double to make consistent
+    let mean_and_scale_trils: Vec<(Tensor, Tensor)> = vec![
+        (
+            Tensor::ones(&[1], (tch::Kind::Double, tch::Device::Cpu)),
+            Tensor::eye(1, (tch::Kind::Double, tch::Device::Cpu)),
+        ),
+        (
+            Tensor::of_slice(&[1f64, 2.0, 3.0]),
+            Tensor::try_from(array![[3f64, 0.0, 0.0], [0.0, 7.0, 0.0], [0.0, 0.0, 10.0]]).unwrap(),
+        ),
+        (
+            Tensor::ones(&[1, 4], (tch::Kind::Double, tch::Device::Cpu)),
+            Tensor::eye(4, (tch::Kind::Double, tch::Device::Cpu)),
+        ),
+        (
+            Tensor::ones(&[4, 2], (tch::Kind::Double, tch::Device::Cpu)),
+            Tensor::eye(2, (tch::Kind::Double, tch::Device::Cpu)),
+        ),
+        (
+            Tensor::ones(&[3], (tch::Kind::Double, tch::Device::Cpu)),
+            Tensor::eye(3, (tch::Kind::Double, tch::Device::Cpu)),
+        ),
+    ];
 
     let mut test_cases = TestCases::default();
     test_cases.icdf = None;
@@ -733,6 +829,9 @@ fn multivariate_normal() {
             ))
             .unwrap();
         let dist_rs = MultivariateNormal::from_scale_tril(mean, scale_tril);
-        run_test_cases(&py_env, dist_rs, dist_py, &test_cases);
+        if let Some(sample) = &test_cases.sample {
+            test_rsample_of_multi_var_normal_distribution(&py_env, &dist_rs, dist_py, sample);
+        }
+        // run_test_cases(&py_env, dist_rs, dist_py, &test_cases);
     }
 }
