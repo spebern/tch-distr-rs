@@ -1,4 +1,5 @@
-use crate::Distribution;
+use crate::{utils::standard_normal, Distribution};
+
 use std::f64::consts::PI;
 use tch::{
     Kind::{Double, Float},
@@ -51,8 +52,8 @@ impl MultivariateNormal {
             .split_last()
             .map(|(_, before)| before.to_vec())
             .unwrap_or_else(Vec::new);
+        let scale_tril = precision_to_scale_tril(&precision);
         let (event_shape, batch_shape) = split_shapes(&mean_size);
-        let scale_tril = precision_to_scale_tril(&precision_mean[0]);
         let cov = scale_tril.matmul(&scale_tril.transpose(-1, -2)).expand(
             &[
                 batch_shape.as_slice(),
@@ -98,15 +99,21 @@ impl MultivariateNormal {
             event_shape,
         }
     }
+
+    pub fn rsample(&self, shape: &[i64]) -> Tensor {
+        let shape = self.extended_shape(shape);
+        let eps = standard_normal(&shape, self.mean.kind(), self.mean.device());
+        &self.mean + &self.scale_tril.matmul(&eps.unsqueeze(-1)).squeeze_dim(-1)
+    }
 }
 
 impl Distribution for MultivariateNormal {
     fn entropy(&self) -> Tensor {
-        let half_log_det = self
-            .scale_tril
-            .diagonal(0, -2, -1)
-            .log()
-            .sum_dim_intlist(&[-1], true, Double);
+        let half_log_det =
+            self.scale_tril
+                .diagonal(0, -2, -1)
+                .log()
+                .sum_dim_intlist(&[-1], true, Double);
         let h = (0.5 * self.event_shape[0] as f64) * (1.0 + (2.0 * PI).ln()) + half_log_det;
         if self.batch_shape.is_empty() {
             h
@@ -115,24 +122,14 @@ impl Distribution for MultivariateNormal {
         }
     }
 
-    fn sample(&self, shape: &[i64]) -> Tensor {
-        let shape = self.extended_shape(shape);
-        let eps = Tensor::normal_tensor_tensor_out(
-            &Tensor::empty(&shape, (self.mean.kind(), self.mean.device())),
-            &Tensor::from(0.0).expand(&shape, false),
-            &Tensor::from(1.0).expand(&shape, false),
-        );
-        &self.mean + &self.scale_tril.matmul(&eps.unsqueeze(-1)).squeeze_dim(-1)
-    }
-
     fn log_prob(&self, val: &Tensor) -> Tensor {
         let diff = val - &self.mean;
         let m = batch_mahalanobis(&self.scale_tril, &diff).totype(Double);
-        let half_log_det = self
-            .scale_tril
-            .diagonal(0, -2, -1)
-            .log()
-            .sum_dim_intlist(&[-1], true, Double);
+        let half_log_det =
+            self.scale_tril
+                .diagonal(0, -2, -1)
+                .log()
+                .sum_dim_intlist(&[-1], true, Double);
         -0.5 * (self.event_shape[0] as f64 * (2.0 * PI).ln() + m) - half_log_det
     }
 
@@ -146,7 +143,7 @@ impl Distribution for MultivariateNormal {
 }
 
 fn precision_to_scale_tril(precision_matrix: &Tensor) -> Tensor {
-    let l_f = precision_matrix.flip(&[-2, -1]);
+    let l_f = precision_matrix.flip(&[-2, -1]).cholesky(false);
     let l_inv = l_f.flip(&[-2, -1]).transpose(-2, -1);
     let (l, _) = Tensor::eye(
         *precision_matrix.size().last().unwrap(),

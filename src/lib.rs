@@ -32,7 +32,9 @@ pub trait Distribution {
 
     /// Generates a sample_shape shaped sample or sample_shape shaped batch of
     /// samples if the distribution parameters are batched.
-    fn sample(&self, shape: &[i64]) -> Tensor;
+    fn sample(&self, _shape: &[i64]) -> Tensor {
+        unimplemented!()
+    }
 
     #[doc(hidden)]
     fn batch_shape(&self) -> &[i64] {
