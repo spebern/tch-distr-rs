@@ -5,8 +5,8 @@ use serial_test::serial;
 use std::convert::{TryFrom, TryInto};
 use tch::Tensor;
 use tch_distr::{
-    Bernoulli, Cauchy, Distribution, Exponential, Gamma, Geometric, KullackLeiberDivergence,
-    MultivariateNormal, Normal, Poisson, Uniform,
+    Bernoulli, Categorical, Cauchy, Distribution, Exponential, Gamma, Geometric,
+    KullackLeiberDivergence, MultivariateNormal, Normal, Poisson, Uniform,
 };
 
 const SEED: i64 = 42;
@@ -81,12 +81,34 @@ fn tensor_to_py_obj<'py>(py_env: &'py PyEnv, t: &Tensor) -> &'py PyAny {
 }
 
 fn assert_tensor_eq<'py>(py: Python<'py>, t: &Tensor, py_t: &PyAny) {
-    let pyarray: &PyArrayDyn<f64> = py_t.call_method0("numpy").unwrap().extract().unwrap();
-    let array: ArrayD<f64> = t.try_into().unwrap();
-    assert_eq!(
-        array.to_pyarray(py).as_cell_slice().unwrap(),
-        pyarray.as_cell_slice().unwrap()
-    );
+    // transfter type to f64(Double)
+    let python_side_array: &PyArrayDyn<f64> = if t.kind() == tch::Kind::Int64 {
+        let tmp_pyarray: &PyArrayDyn<i64> = py_t.call_method0("numpy").unwrap().extract().unwrap();
+        tmp_pyarray
+            .call_method1("astype", ("float64",))
+            .unwrap()
+            .extract()
+            .unwrap()
+    } else {
+        py_t.call_method0("numpy").unwrap().extract().unwrap()
+    };
+
+    // TODO: how to treat NaN as same?
+    
+    // let tmp_rust_side_array = &t.to_kind(tch::Kind::Float);
+    let rust_side_array: ArrayD<f64> = t.try_into().unwrap();
+    let rust_side_array: &PyArrayDyn<f64> = rust_side_array.to_pyarray(py); ////or default type:&PyArrayDyn<f64,Dim<IxDynImpl>>
+    // println!("rust pyarray1:{}", rust_side_array);
+    // println!("python pyarray1:{}", python_side_array); // type:&PyArrayDyn<f64>
+    // println!("===========1===========\n");
+
+    let python_side_array = python_side_array.as_cell_slice().unwrap();
+    let rust_side_array = rust_side_array.as_cell_slice().unwrap();
+    // println!("rust pyarray2:{:?}", rust_side_array);
+    // println!("python pyarray2:{:?}", python_side_array);
+    // println!("===========2===========\n");
+    assert_eq!(rust_side_array, python_side_array);
+    // println!("===========after assertion===========\n");
 }
 
 fn test_entropy<D: Distribution>(py_env: &PyEnv, dist_rs: &D, dist_py: &PyAny) {
@@ -298,7 +320,7 @@ fn uniform() {
         Tensor::of_slice(&[1.2, 1.4]),
         Tensor::of_slice(&[2.0, 1.5]),
     ]);
-    test_cases.sample = Some(vec![vec![1], vec![1, 2]]);
+    test_cases.sample = Some(vec![vec![1], vec![2], vec![1, 4], vec![2, 3]]);
 
     for (low, high) in args.into_iter() {
         let dist_py = py_env
@@ -834,4 +856,104 @@ fn multivariate_normal() {
         }
         // run_test_cases(&py_env, dist_rs, dist_py, &test_cases);
     }
+}
+
+#[test]
+#[serial]
+fn categorical() {
+    let gil = Python::acquire_gil();
+    let py_env = PyEnv::new(&gil);
+
+    // 1.init/test with probabilities
+    let prob_args_vec: Vec<Tensor> = vec![
+        Tensor::of_slice(&[0.4, 0.3, 0.3]),
+        Tensor::of_slice(&[0.25, 0.25, 0.1, 0.4]),
+        Tensor::try_from(array![[0.1, 0.1, 0.8], [0.1, 0.7, 0.2], [0.3, 0.4, 0.3]])
+            .expect("initial from array failed"),
+    ];
+
+    let mut test_cases = TestCases::default();
+    test_cases.icdf = None;
+    test_cases.cdf = None;
+    test_cases.log_prob = Some(vec![
+        1.0.into(),
+        2.0.into(),
+        // the below is invalid paramters for multi-dim initialed categorical ditribution
+        // Tensor::of_slice(&[1.0, 1.0]),
+        // Tensor::of_slice(&[2.0, 2.0]),
+    ]);
+    test_cases.sample = None; //Some(vec![vec![1], vec![3]]);
+    for probs in prob_args_vec.into_iter() {
+        let dist_py = py_env
+            .distributions
+            .getattr("Categorical")
+            .expect("call Categorical with probs failed")
+            .call1((tensor_to_py_obj(&py_env, &probs),))
+            .unwrap();
+        let dist_rs = Categorical::from_probs(probs);
+
+        // // test property mean
+        // let mean_py = dist_py.getattr("mean")
+        // .expect("call property mean failed");
+        // let mean_rs = dist_rs.mean();
+        // assert_tensor_eq(py_env.py, &mean_rs, mean_py);
+
+        // // test property variance
+        // let variance_py = dist_py.getattr("variance")
+        // .expect("call property variance failed");
+        // let variance_rs = dist_rs.variance();
+        // assert_tensor_eq(py_env.py, &variance_rs, variance_py);
+
+        // common test
+        run_test_cases(&py_env, dist_rs, dist_py, &test_cases);
+    }
+
+    // 2.init/test with log probabilities
+    let log_args_vec: Vec<Tensor> = vec![
+        Tensor::of_slice(&[0.4, 0.3, 0.3]),
+        Tensor::of_slice(&[0.25, 0.25, 0.1, 0.4]),
+        Tensor::try_from(array![[0.1, 0.1, 0.8], [0.1, 0.7, 0.2], [0.3, 0.4, 0.3]])
+            .expect("initial from array failed"),
+    ];
+
+    let mut test_cases = TestCases::default();
+    test_cases.icdf = None;
+    test_cases.cdf = None;
+    test_cases.log_prob = Some(vec![
+        1.0.into(),
+        2.0.into(),
+        // the below is invalid paramters for multi-dim initialed categorical ditribution
+        // Tensor::of_slice(&[1.0, 1.0]),
+        // Tensor::of_slice(&[2.0, 2.0]),
+    ]);
+    test_cases.sample = None; //Some(vec![vec![1], vec![3]]);
+    for logits in log_args_vec.into_iter() {
+        let dist_py = py_env
+            .distributions
+            .getattr("Categorical")
+            .expect("call Categorical with logits failed")
+            .call1((
+                pyo3::Python::None(py_env.py),
+                tensor_to_py_obj(&py_env, &logits).to_object(py_env.py),
+            ))
+            .unwrap();
+        let dist_rs = Categorical::from_logits(logits);
+
+        // // test property mean
+        // let mean_py = dist_py.getattr("mean")
+        // .expect("call property mean failed");
+        // let mean_rs = dist_rs.mean();
+        // assert_tensor_eq(py_env.py, &mean_rs, mean_py);
+
+        // // test property variance
+        // let variance_py = dist_py.getattr("variance")
+        // .expect("call property variance failed");
+        // let variance_rs = dist_rs.variance();
+        // assert_tensor_eq(py_env.py, &variance_rs, variance_py);
+
+        // common test
+        run_test_cases(&py_env, dist_rs, dist_py, &test_cases);
+    }
+
+    // TODO: test kl divergence?
 }
