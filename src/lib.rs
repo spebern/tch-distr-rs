@@ -10,6 +10,7 @@ mod normal;
 mod poisson;
 mod uniform;
 mod utils;
+mod categorical;
 
 pub trait Distribution {
     /// Returns the cumulative density/mass function evaluated at `val`.
@@ -67,3 +68,4 @@ pub use multivariate_normal::MultivariateNormal;
 pub use normal::Normal;
 pub use poisson::Poisson;
 pub use uniform::Uniform;
+pub use categorical::Categorical;
