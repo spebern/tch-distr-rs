@@ -56,7 +56,7 @@ impl Categorical {
         let logits = logits - logsumexp;
 
         let batch_shape: Vec<i64> = if logits.size().len() > 1 {
-            vec![logits.size().last().unwrap().clone()]
+            logits.size().split_last().unwrap().1.to_vec()
         } else {
             vec![]
         };
