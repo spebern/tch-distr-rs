@@ -44,7 +44,9 @@ impl Cauchy {
 
 impl Distribution for Cauchy {
     fn log_prob(&self, val: &Tensor) -> Tensor {
-        -PI.ln() - self.scale.log() - (1.0f64 + ((val - &self.median) / &self.scale).pow(2)).log()
+        -PI.ln()
+            - self.scale.log()
+            - (1.0f64 + ((val - &self.median) / &self.scale).pow_tensor_scalar(2)).log()
     }
 
     fn sample(&self, shape: &[i64]) -> Tensor {

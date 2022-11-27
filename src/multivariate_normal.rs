@@ -11,6 +11,7 @@ use tch::{
 pub struct MultivariateNormal {
     mean: Tensor,
     scale_tril: Tensor,
+    #[allow(unused)]
     cov: Tensor,
     batch_shape: Vec<i64>,
     event_shape: Vec<i64>,
@@ -35,7 +36,7 @@ impl MultivariateNormal {
             .unwrap_or_else(Vec::new);
         let (event_shape, batch_shape) = split_shapes(&mean_size);
         Self {
-            mean: cov_mean[1].mean_dim(&[-1], false, cov_mean[1].kind()),
+            mean: cov_mean[1].mean_dim([-1].as_ref(), false, cov_mean[1].kind()),
             scale_tril: cov.cholesky(false),
             cov: cov_mean[0].copy(),
             batch_shape,
@@ -64,7 +65,7 @@ impl MultivariateNormal {
             true,
         );
         Self {
-            mean: precision_mean[1].mean_dim(&[-1], false, precision_mean[1].kind()),
+            mean: precision_mean[1].mean_dim([-1].as_ref(), false, precision_mean[1].kind()),
             scale_tril,
             cov,
             batch_shape,
@@ -92,7 +93,7 @@ impl MultivariateNormal {
             true,
         );
         Self {
-            mean: scale_tril_mean[1].mean_dim(&[-1], false, scale_tril_mean[1].kind()),
+            mean: scale_tril_mean[1].mean_dim([-1].as_ref(), false, scale_tril_mean[1].kind()),
             scale_tril: scale_tril_mean[0].copy(),
             cov,
             batch_shape,
@@ -113,7 +114,7 @@ impl Distribution for MultivariateNormal {
             self.scale_tril
                 .diagonal(0, -2, -1)
                 .log()
-                .sum_dim_intlist(&[-1], true, Double);
+                .sum_dim_intlist([-1].as_ref(), true, Double);
         let h = (0.5 * self.event_shape[0] as f64) * (1.0 + (2.0 * PI).ln()) + half_log_det;
         if self.batch_shape.is_empty() {
             h
@@ -129,7 +130,7 @@ impl Distribution for MultivariateNormal {
             self.scale_tril
                 .diagonal(0, -2, -1)
                 .log()
-                .sum_dim_intlist(&[-1], true, Double);
+                .sum_dim_intlist([-1].as_ref(), true, Double);
         -0.5 * (self.event_shape[0] as f64 * (2.0 * PI).ln() + m) - half_log_det
     }
 
@@ -191,8 +192,8 @@ fn batch_mahalanobis(b_l: &Tensor, b_x: &Tensor) -> Tensor {
     let m_swap = flat_x_swap
         .triangular_solve(&flat_l, false, false, false)
         .0
-        .pow(2)
-        .sum_dim_intlist(&[-2], true, Float);
+        .pow_tensor_scalar(2)
+        .sum_dim_intlist([-2].as_ref(), true, Float);
     let m = m_swap.transpose(0, 1);
 
     let permuted_m = m.reshape(&b_x_batch_shape);
