@@ -56,7 +56,7 @@ impl Distribution for Normal {
 
     fn sample(&self, shape: &[i64]) -> Tensor {
         let shape = self.extended_shape(shape);
-        Tensor::normal_tensor_tensor_out(
+        normal_tensor_tensor_out(
             &Tensor::empty(&shape, (self.mean.kind(), self.mean.device())),
             &self.mean.expand(&shape, false),
             &self.stddev.expand(&shape, false),
@@ -64,8 +64,10 @@ impl Distribution for Normal {
     }
 
     fn log_prob(&self, val: &Tensor) -> Tensor {
-        let var = self.stddev.pow(2);
-        -(val - &self.mean).pow(2) / (2.0 * var) - self.stddev().log() - (2.0 * PI).sqrt().ln()
+        let var = self.stddev.pow_tensor_scalar(2);
+        -(val - &self.mean).pow_tensor_scalar(2) / (2.0 * var)
+            - self.stddev().log()
+            - (2.0 * PI).sqrt().ln()
     }
 
     fn cdf(&self, val: &Tensor) -> Tensor {
@@ -83,8 +85,12 @@ impl Distribution for Normal {
 
 impl KullackLeiberDivergence<Self> for Normal {
     fn kl_divergence(&self, other: &Self) -> Tensor {
-        let var_ratio = (self.stddev() / other.stddev()).pow(2.0);
-        let t1 = ((self.mean() - other.mean()) / other.stddev()).pow(2.0);
+        let var_ratio = (self.stddev() / other.stddev()).pow_(2.0);
+        let t1 = ((self.mean() - other.mean()) / other.stddev()).pow_tensor_scalar(2.0);
         &0.5.into() * (&var_ratio + &t1 - &1.into() - var_ratio.log())
     }
+}
+
+fn normal_tensor_tensor_out(out: &Tensor, mean: &Tensor, std: &Tensor) -> Tensor {
+    out.randn_like() * std + mean
 }

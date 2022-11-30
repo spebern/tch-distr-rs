@@ -1,8 +1,8 @@
 use crate::{
     utils::{logits_to_probs, min, probs_to_logits},
-    Distribution, KullackLeiberDivergence,
+    Distribution,
 };
-use tch::{Kind, Reduction, Tensor};
+use tch::Tensor;
 
 /// A Categorical distribution.
 #[derive(Debug)]
@@ -27,7 +27,7 @@ impl Clone for Categorical {
 impl Categorical {
     /// Creates a Categorical distribution from probabilities.
     pub fn from_probs(probs: Tensor) -> Self {
-        let prob_sum = probs.sum_dim_intlist(&[-1], true, probs.kind());
+        let prob_sum = probs.sum_dim_intlist([-1].as_ref(), true, probs.kind());
         let probs = probs / prob_sum;
 
         let batch_shape: Vec<i64> = if probs.size().len() > 1 {
@@ -101,7 +101,7 @@ impl Distribution for Categorical {
         let min_real = min(self.logits.kind()).unwrap();
         let logits = self.logits.clamp(min_real, f64::INFINITY);
         let p_log_p = logits * &self.probs;
-        -p_log_p.sum_dim_intlist(&[-1], false, p_log_p.kind())
+        -p_log_p.sum_dim_intlist([-1].as_ref(), false, p_log_p.kind())
     }
 
     fn log_prob(&self, val: &Tensor) -> Tensor {

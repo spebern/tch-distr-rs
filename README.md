@@ -3,7 +3,7 @@
 This is an attempt of mimicking the python `torch.distributions` module. 
 
 Rust has a very good wrapper around `libtorch`: [https://github.com/LaurentMazare/tch-rs](tch-rs). 
-However, the `torch.distributions` module only exists in python and therefor needs to
+However, the `torch.distributions` module only exists in python and therefore needs to
 be implemented in rust which is a lot of work. Also, the python module is very well tested.
 
 To ease the work for porting the distributions `tch-distr-rs`'s output is tested against
