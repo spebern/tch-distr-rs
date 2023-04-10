@@ -791,7 +791,7 @@ fn multivariate_normal() {
         ),
         (
             Tensor::ones(&[1, 2], (tch::Kind::Double, tch::Device::Cpu)),
-            Tensor::of_slice(&[0.6f64, 0.4, 0.5, 0.5]).reshape(&[2, 2]),
+            Tensor::of_slice(&[0.6f64, 0.4, 0.4, 0.5]).reshape(&[2, 2]),
         ),
     ];
     let mut test_cases = TestCases::default();
