@@ -166,7 +166,12 @@ fn batch_mahalanobis(b_l: &Tensor, b_x: &Tensor) -> Tensor {
     let old_batch_dims = outer_batch_dims + b_l_batch_dims;
     let new_batch_dims = outer_batch_dims + 2 * b_l_batch_dims;
 
-    let mut bx_new_shape = Vec::new();
+    let mut bx_new_shape: Vec<_> = b_x
+        .size()
+        .iter()
+        .take(outer_batch_dims as usize)
+        .copied()
+        .collect();
     for (&s_x, &s_l) in b_l.size().iter().take(b_l.size().len().max(2) - 2).zip(
         b_x_batch_shape
             .iter()
