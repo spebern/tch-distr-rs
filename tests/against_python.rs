@@ -81,7 +81,7 @@ fn tensor_to_py_obj<'py>(py_env: &'py PyEnv, t: &Tensor) -> &'py PyAny {
         .unwrap()
 }
 
-fn assert_tensor_eq<'py>(py: Python<'py>, t: &Tensor, py_t: &PyAny) {
+fn assert_tensor_eq(py: Python<'_>, t: &Tensor, py_t: &PyAny) {
     // transfer type to f64(Double)
     let python_side_array: &PyArrayDyn<f64> = if t.kind() == tch::Kind::Int64 {
         let tmp_pyarray: &PyArrayDyn<i64> = py_t
@@ -143,7 +143,7 @@ fn test_cdf<D: Distribution>(py_env: &PyEnv, dist_rs: &D, dist_py: &PyAny, args:
 }
 
 fn test_icdf<D: Distribution>(py_env: &PyEnv, dist_rs: &D, dist_py: &PyAny, args: &[Tensor]) {
-    for args in args.into_iter() {
+    for args in args.iter() {
         let args_py = PyTuple::new(py_env.py, vec![tensor_to_py_obj(py_env, args)]);
         let log_prob_py = dist_py.call_method1("icdf", args_py).unwrap();
         let log_prob_rs = dist_rs.icdf(args);
@@ -152,7 +152,7 @@ fn test_icdf<D: Distribution>(py_env: &PyEnv, dist_rs: &D, dist_py: &PyAny, args
 }
 
 fn test_sample<D: Distribution>(py_env: &PyEnv, dist_rs: &D, dist_py: &PyAny, args: &[Vec<i64>]) {
-    for args in args.into_iter() {
+    for args in args.iter() {
         // We need to ensure that we always start with the same seed.
         tch::manual_seed(SEED);
         let samples_py = dist_py
@@ -170,7 +170,7 @@ fn test_rsample_of_normal_distribution(
     dist_py: &PyAny,
     args: &[Vec<i64>],
 ) {
-    for args in args.into_iter() {
+    for args in args.iter() {
         // We need to ensure that we always start with the same seed.
         tch::manual_seed(SEED);
         let samples_py = dist_py
@@ -188,7 +188,7 @@ fn test_rsample_of_multi_var_normal_distribution(
     dist_py: &PyAny,
     args: &[Vec<i64>],
 ) {
-    for args in args.into_iter() {
+    for args in args.iter() {
         // We need to ensure that we always start with the same seed.
         tch::manual_seed(SEED);
         let samples_py = dist_py
@@ -212,7 +212,7 @@ fn test_kl_divergence<P, Q>(
 {
     let args_py = PyTuple::new(py_env.py, vec![dist_p_py, dist_q_py]);
     let kl_divergence_py = py_env.kl.call_method1("kl_divergence", args_py).unwrap();
-    let kl_divergence_rs = dist_p_rs.kl_divergence(&dist_q_rs);
+    let kl_divergence_rs = dist_p_rs.kl_divergence(dist_q_rs);
     assert_tensor_eq(py_env.py, &kl_divergence_rs, kl_divergence_py);
 }
 
@@ -224,10 +224,10 @@ where
         test_entropy(py_env, &dist_rs, dist_py);
     }
     if let Some(log_prob) = test_cases.log_prob.as_ref() {
-        test_log_prob(py_env, &dist_rs, dist_py, &log_prob);
+        test_log_prob(py_env, &dist_rs, dist_py, log_prob);
     }
     if let Some(cdf) = test_cases.cdf.as_ref() {
-        test_cdf(py_env, &dist_rs, dist_py, &cdf);
+        test_cdf(py_env, &dist_rs, dist_py, cdf);
     }
     if let Some(icdf) = test_cases.icdf.as_ref() {
         test_icdf(py_env, &dist_rs, dist_py, icdf);
