@@ -19,3 +19,4 @@ numpy = "0.14.1"
 ndarray = "0.15.3"
 pyo3 = { version = "0.14.1", features = ["macros", "auto-initialize"] }
 serial_test = "0.5.1"
+float-cmp = "0.9"

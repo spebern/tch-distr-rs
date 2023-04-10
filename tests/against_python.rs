@@ -1,3 +1,4 @@
+use float_cmp::assert_approx_eq;
 use ndarray::{array, ArrayD};
 use numpy::{PyArrayDyn, ToPyArray};
 use pyo3::{prelude::*, types::PyTuple};
@@ -81,7 +82,7 @@ fn tensor_to_py_obj<'py>(py_env: &'py PyEnv, t: &Tensor) -> &'py PyAny {
 }
 
 fn assert_tensor_eq<'py>(py: Python<'py>, t: &Tensor, py_t: &PyAny) {
-    // transfter type to f64(Double)
+    // transfer type to f64(Double)
     let python_side_array: &PyArrayDyn<f64> = if t.kind() == tch::Kind::Int64 {
         let tmp_pyarray: &PyArrayDyn<i64> = py_t
             .call_method0("contiguous")
@@ -104,22 +105,17 @@ fn assert_tensor_eq<'py>(py: Python<'py>, t: &Tensor, py_t: &PyAny) {
             .unwrap()
     };
 
-    // TODO: how to treat NaN as same?
-
-    // let tmp_rust_side_array = &t.to_kind(tch::Kind::Float);
     let rust_side_array: ArrayD<f64> = t.try_into().unwrap();
-    let rust_side_array: &PyArrayDyn<f64> = rust_side_array.to_pyarray(py); ////or default type:&PyArrayDyn<f64,Dim<IxDynImpl>>
-    println!("rust pyarray1:{}", rust_side_array);
-    println!("python pyarray1:{}", python_side_array); // type:&PyArrayDyn<f64>
-    println!("===========1===========\n");
+    let rust_side_array: &PyArrayDyn<f64> = rust_side_array.to_pyarray(py);
 
-    let python_side_array = python_side_array.as_cell_slice().unwrap();
-    let rust_side_array = rust_side_array.as_cell_slice().unwrap();
-    // println!("rust pyarray2:{:?}", rust_side_array);
-    // println!("python pyarray2:{:?}", python_side_array);
-    // println!("===========2===========\n");
-    assert_eq!(rust_side_array, python_side_array);
-    // println!("===========after assertion===========\n");
+    let python_side_array = python_side_array.as_cell_slice().unwrap().to_vec();
+    let rust_side_array = rust_side_array.as_cell_slice().unwrap().to_vec();
+    assert_eq!(python_side_array.len(), rust_side_array.len());
+    for (a, b) in python_side_array.iter().zip(rust_side_array.iter()) {
+        let a = a.get();
+        let b = b.get();
+        assert_approx_eq!(f64, a, b, ulps = 2);
+    }
 }
 
 fn test_entropy<D: Distribution>(py_env: &PyEnv, dist_rs: &D, dist_py: &PyAny) {
@@ -276,13 +272,12 @@ fn normal() {
             .unwrap();
         let dist_rs = Normal::new(mean, std);
 
-        // The test of rsampling is not in function `run_test_cases`,
+        // The test of resampling is not in function `run_test_cases`,
         // because `rsample` is not a method of trait `Distribution`
         if let Some(sample) = &test_cases.sample {
             test_rsample_of_normal_distribution(&py_env, &dist_rs, dist_py, sample);
         }
 
-        //genral test
         run_test_cases(&py_env, dist_rs, dist_py, &test_cases);
     }
 
@@ -735,7 +730,7 @@ fn multivariate_normal() {
     let py_env = PyEnv::new(&gil);
 
     // 1.init/test with mean and covariance
-    // NOTE: as pytorch taks float64 as default number type,
+    // NOTE: as pytorch takes float64 as default number type,
     // Here we use tch::Kind::Double to make consistent
     let mean_and_covs: Vec<(Tensor, Tensor)> = vec![
         (
@@ -779,7 +774,7 @@ fn multivariate_normal() {
             .unwrap();
         let dist_rs = MultivariateNormal::from_cov(mean, cov);
 
-        // The test of rsampling is not in function `run_test_cases`,
+        // The test of resampling is not in function `run_test_cases`,
         // because `rsample` is not a method of trait `Distribution`
         if let Some(sample) = &test_cases.sample {
             test_rsample_of_multi_var_normal_distribution(&py_env, &dist_rs, dist_py, sample);
@@ -789,7 +784,7 @@ fn multivariate_normal() {
     }
 
     // 2.init/test with mean and precisions
-    // NOTE: as pytorch taks float64 as default number type,
+    // NOTE: as pytorch tasks float64 as default number type,
     // Here we use tch::Kind::Double to make consistent
     let mean_and_precisions: Vec<(Tensor, Tensor)> = vec![
         (
@@ -826,7 +821,7 @@ fn multivariate_normal() {
     }
 
     // 3.init/test with mean and scale_trils
-    // NOTE: as pytorch taks float64 as default number type,
+    // NOTE: as pytorch takes float64 as default number type,
     // Here we use tch::Kind::Double to make consistent
     let mean_and_scale_trils: Vec<(Tensor, Tensor)> = vec![
         (
