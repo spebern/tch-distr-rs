@@ -108,13 +108,11 @@ fn assert_tensor_eq(py: Python<'_>, t: &Tensor, py_t: &PyAny) {
     let rust_side_array: ArrayD<f64> = t.try_into().unwrap();
     let rust_side_array: &PyArrayDyn<f64> = rust_side_array.to_pyarray(py);
 
-    let python_side_array = python_side_array.as_cell_slice().unwrap().to_vec();
-    let rust_side_array = rust_side_array.as_cell_slice().unwrap().to_vec();
+    let python_side_array = python_side_array.readonly().as_slice().unwrap().to_vec();
+    let rust_side_array = rust_side_array.readonly().as_slice().unwrap().to_vec();
     assert_eq!(python_side_array.len(), rust_side_array.len());
     for (a, b) in python_side_array.iter().zip(rust_side_array.iter()) {
-        let a = a.get();
-        let b = b.get();
-        assert_approx_eq!(f64, a, b, ulps = 2);
+        assert_approx_eq!(f64, *a, *b, ulps = 2);
     }
 }
 
